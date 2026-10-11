@@ -4,6 +4,23 @@
 
 Build Mona's Project Pulse dashboard by coordinating specialist roles through **GitHub Agentic Workflows**.
 
+## Repository setup
+
+Before learners begin, a repository administrator must complete the one-time setup:
+
+1. Create the two least-privilege fine-grained PATs described in the [operator setup guide](docs/agentic-workflows-operations.md#one-time-setup).
+1. From the default branch, run:
+
+   ```shell
+   node .github/scripts/setup-agentic-workflows.mjs --configure
+   ```
+
+The script prompts only for missing secret values and configures everything else. The exercise start workflow and all five slash commands remain locked until setup passes. Rerun the read-only check at any time with:
+
+```shell
+node .github/scripts/setup-agentic-workflows.mjs --check
+```
+
 ## How the exercise works
 
 The exercise issue is the control plane:
@@ -19,4 +36,4 @@ Open the exercise issue to begin:
 
 [![Go to Exercise](https://img.shields.io/badge/Go%20to%20Exercise-%E2%86%92-1f883d?style=for-the-badge&logo=github&labelColor=197935)](https://github.com/diberry/agent-orchestration-build-your-ai-dream-team/issues/1)
 
-GitHub Agentic Workflows are in public preview. Repository operators should complete the setup and preflight in [GitHub Agentic Workflows operations](docs/agentic-workflows-operations.md) before enabling the commands for learners.
+GitHub Agentic Workflows are in public preview. See [GitHub Agentic Workflows operations](docs/agentic-workflows-operations.md) for token scopes, exactly what the setup script changes, verification, and troubleshooting.

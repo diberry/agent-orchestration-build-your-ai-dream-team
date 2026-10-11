@@ -4,6 +4,9 @@ Welcome to **Agent Orchestration: Build Your AI Dream Team**! :robot:
 
 Mona's team needs a small **Project Pulse** dashboard. You will build it with GitHub Agentic Workflows that run in GitHub Actions.
 
+> [!NOTE]
+> A repository administrator must first complete `docs/agentic-workflows-operations.md#one-time-setup`. Step 0 and every slash command are locked until `node .github/scripts/setup-agentic-workflows.mjs --check` passes.
+
 ### How will the exercise work?
 
 The exercise issue is your control plane. At each stage, you will:
@@ -69,7 +72,7 @@ The agent job receives read-only repository access. It proposes changes through 
 <details>
 <summary>Having trouble? 🤷</summary><br/>
 
-- If no run starts, confirm that you posted `/pulse-team` as a standalone issue comment and that you have write access to the repository.
+- If no run starts, run `node .github/scripts/setup-agentic-workflows.mjs --check`, then confirm that you posted `/pulse-team` as a standalone issue comment and that you have write access to the repository.
 - If the run fails once, the retry controller may rerun it one time.
 - If a second attempt fails, look for the `agentic:needs-human` label and the evidence links in the escalation comment. A maintainer must resolve the blocker before the stage is invoked again.
 - If the pull request changes more than `docs/agent-team.md`, do not merge it.

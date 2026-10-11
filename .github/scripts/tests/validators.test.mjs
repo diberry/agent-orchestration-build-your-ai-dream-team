@@ -4,6 +4,11 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import {
+  buildRulesetPayload,
+  evaluateSetupState,
+  parseArgs
+} from "../setup-agentic-workflows.mjs";
 
 const scriptsDir = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(scriptsDir, "..", "..");
@@ -37,6 +42,79 @@ test("validate-project-pulse accepts the valid fixture", () => {
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const json = parseJson(result.stdout);
   assert.equal(json.ok, true);
+});
+
+test("setup script builds the required default-branch ruleset", () => {
+  const payload = buildRulesetPayload();
+  assert.equal(payload.enforcement, "active");
+  assert.deepEqual(payload.conditions.ref_name.include, ["~DEFAULT_BRANCH"]);
+  const pullRequest = payload.rules.find((rule) => rule.type === "pull_request");
+  assert.deepEqual(pullRequest.parameters.allowed_merge_methods, ["merge", "squash", "rebase"]);
+  assert.equal(pullRequest.parameters.required_approving_review_count, 1);
+  assert.equal(pullRequest.parameters.require_code_owner_review, true);
+  const requiredChecks = payload.rules.find((rule) => rule.type === "required_status_checks");
+  assert.deepEqual(
+    requiredChecks.parameters.required_status_checks.map((check) => check.context),
+    ["Agentic workflow policy", "Project Pulse contract"]
+  );
+});
+
+test("setup check reports missing configuration and accepts complete state", () => {
+  assert.throws(() => parseArgs([]), /Choose --configure or --check/);
+  assert.deepEqual(parseArgs(["--check", "--repo", "owner/repo"]), {
+    mode: "check",
+    repo: "owner/repo"
+  });
+
+  const incomplete = evaluateSetupState({
+    secrets: [],
+    label: null,
+    actions: {},
+    ruleset: null,
+    variable: null
+  });
+  assert.ok(incomplete.length >= 6);
+
+  const complete = evaluateSetupState({
+    secrets: [
+      { name: "COPILOT_GITHUB_TOKEN" },
+      { name: "GH_AW_CI_TRIGGER_TOKEN" }
+    ],
+    label: { name: "agentic:needs-human" },
+    actions: {
+      default_workflow_permissions: "read",
+      can_approve_pull_request_reviews: true
+    },
+    ruleset: {
+      enforcement: "active",
+      rules: buildRulesetPayload().rules
+    },
+    variable: { name: "AGENTIC_SETUP_COMPLETE", value: "true" }
+  });
+  assert.deepEqual(complete, []);
+});
+
+test("exercise start and every agentic stage require completed setup", () => {
+  const start = readFileSync(path.join(repoRoot, ".github", "workflows", "0-start-exercise.yml"), "utf8");
+  assert.match(start, /name: Agentic setup gate/);
+  assert.match(start, /SETUP_COMPLETE: \$\{\{ vars\.AGENTIC_SETUP_COMPLETE \}\}/);
+  assert.match(start, /needs: \[setup_gate\]/);
+
+  const workflowDir = path.join(repoRoot, ".github", "workflows");
+  for (const source of [
+    "project-pulse-01-team.md",
+    "project-pulse-02-plan.md",
+    "project-pulse-03-design.md",
+    "project-pulse-03-build.md",
+    "project-pulse-04-handoff.md"
+  ]) {
+    const content = readFileSync(path.join(workflowDir, source), "utf8");
+    assert.match(
+      content,
+      /vars\.AGENTIC_SETUP_COMPLETE == 'true'/,
+      `${source} must require completed setup`
+    );
+  }
 });
 
 test("validate-project-pulse rejects the invalid fixture", () => {

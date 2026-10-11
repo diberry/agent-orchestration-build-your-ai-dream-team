@@ -15,5 +15,7 @@ fi
 
 echo ""
 echo "Setup complete."
+echo "Repository owners: follow docs/agentic-workflows-operations.md#one-time-setup."
+echo "Then run: node .github/scripts/setup-agentic-workflows.mjs --check"
 echo "Use the exercise issue for slash commands and workflow status."
 echo "Use this Codespace only when a lesson asks you to preview the dashboard."

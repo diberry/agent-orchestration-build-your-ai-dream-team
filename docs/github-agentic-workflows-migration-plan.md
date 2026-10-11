@@ -1,7 +1,7 @@
 # GitHub Agentic Workflows migration plan
 
 > [!NOTE]
-> Implementation status: the repository implementation uses the recommended defaults in this plan. The approved decisions and operator-only preflight are recorded in `docs/agentic-workflows-operations.md`. Live secret configuration, branch rules, trials, and controlled failure tests must be completed by a repository owner before learner enablement.
+> Implementation status: the repository implementation uses the recommended defaults in this plan. The one-time, mostly automated operator setup is in `docs/agentic-workflows-operations.md#one-time-setup`. After creating two least-privilege PATs, an administrator runs `node .github/scripts/setup-agentic-workflows.mjs --configure`; Step 0 and every slash command remain locked until the setup check passes.
 
 ## Outcome
 

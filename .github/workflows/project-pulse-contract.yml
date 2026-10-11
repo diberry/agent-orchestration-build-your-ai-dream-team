@@ -2,17 +2,9 @@ name: Project Pulse contract
 
 on:
   pull_request:
-    paths:
-      - app/**
-      - .vscode/launch.json
-      - .github/scripts/validate-project-pulse.mjs
   push:
     branches:
       - main
-    paths:
-      - app/**
-      - .vscode/launch.json
-      - .github/scripts/validate-project-pulse.mjs
   workflow_dispatch:
 
 permissions:
@@ -39,7 +31,7 @@ jobs:
             initial_migration=true
           fi
           if [ "$initial_migration" = "true" ] ||
-             { [ "$EVENT_NAME" = "push" ] && grep -q "Dashboard placeholder" app/index.html; }; then
+             grep -q "Dashboard placeholder" app/index.html; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "The checked-in learner baseline is not a build artifact." >> "$GITHUB_STEP_SUMMARY"
           else

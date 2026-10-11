@@ -24,37 +24,69 @@ This implementation records the repository owner's request to implement the migr
 - Compile with `gh aw compile`.
 - Validate policy with `node .github/scripts/validate-agentic-workflow.mjs`.
 
-## Required repository secrets
+## One-time setup
 
-Configure values through repository settings or `gh aw secrets set`. Never record token values.
+The setup is intentionally automated. A repository administrator does only two things manually:
+
+1. Create the two fine-grained PATs in the following table.
+1. Run one command and paste each token only when GitHub CLI prompts for it.
 
 | Secret | Scope | Purpose |
 |---|---|---|
 | `COPILOT_GITHUB_TOKEN` | Fine-grained PAT with account permission **Copilot Requests: Read** | Copilot inference only |
 | `GH_AW_CI_TRIGGER_TOKEN` | Fine-grained PAT for this repository with **Contents: Read and write** | Extra empty commit that triggers normal PR CI |
 
-Do not add `copilot-requests: write` to stage workflows. Do not reuse either token for a different purpose.
+Create fine-grained PATs at <https://github.com/settings/personal-access-tokens/new>. Give each token only the access listed above. Do not add `copilot-requests: write`, reuse either token, place token values in command arguments, or save them in this repository.
+
+After this migration is merged, check out the default branch and authenticate GitHub CLI as a repository administrator:
+
+```shell
+gh auth login
+git switch main
+git pull --ff-only
+node .github/scripts/setup-agentic-workflows.mjs --configure
+```
+
+The script is safe to rerun. It:
+
+- installs or updates `gh-aw` to `v0.83.4`;
+- prompts through `gh secret set` only when either required Actions secret is missing;
+- creates or updates the `agentic:needs-human` label;
+- keeps default Actions permissions read-only and enables GitHub's combined setting that permits Actions to create pull requests;
+- creates or updates the active `Project Pulse agentic workflow guardrails` ruleset on the default branch;
+- requires a pull request, one human approval, CODEOWNER review, resolution of review threads, and approval from someone other than the last pusher;
+- blocks deletion and non-fast-forward updates;
+- requires the always-running `Agentic workflow policy` and `Project Pulse contract` checks; and
+- runs `gh aw doctor`; and
+- sets `AGENTIC_SETUP_COMPLETE=true` only after configuration and doctor checks pass.
+
+GitHub combines “create pull requests” and “approve pull requests” in one repository setting. The setup enables that setting because safe outputs must create draft pull requests. The workflow definitions never request approval or merge operations, and the ruleset requires qualifying human approval.
+
+Confirm the current state without changing anything:
+
+```shell
+node .github/scripts/setup-agentic-workflows.mjs --check
+```
+
+To target a repository other than the current checkout, add `--repo OWNER/REPOSITORY`.
 
 Record the PAT expiration dates and preflight date in a private operator system, not in this repository.
 
-## Repository settings
+## Setup gate
 
-1. Enable GitHub Actions and allow Actions to create pull requests.
-1. Create the `agentic:needs-human` label.
-1. Apply a branch ruleset requiring pull requests, one human approval, CODEOWNER review for governed paths, `Agentic workflow policy`, and `Project Pulse contract` where applicable.
-1. Prevent workflows from approving or merging their own pull requests.
-1. Configure both required secrets.
+Step 0 checks `AGENTIC_SETUP_COMPLETE` and both secret names before it creates the exercise issue or enables Step 1. Every slash-command workflow also requires `AGENTIC_SETUP_COMPLETE == 'true'`. Learners therefore cannot bypass an incomplete setup by creating an issue manually.
+
+Both required checks run on every pull request so the ruleset never waits for a path-filtered workflow that did not start. The Project Pulse contract reports success without app validation while the learner placeholder is checked in.
 
 ## Preflight
 
-1. Confirm both secret names exist without printing their values.
-1. Run `gh aw doctor --repo OWNER/REPOSITORY`.
+1. Run `node .github/scripts/setup-agentic-workflows.mjs --check`.
 1. Run a read-only Stage 1 trial with an issue trigger context.
 1. Confirm the agent job has only read permissions.
 1. Confirm write permissions occur only in safe-output jobs.
 1. Confirm the draft PR receives an extra empty commit and starts normal CI.
 1. Confirm evidence contains no token prefix, authorization header, or unsanitized secret.
-1. Force two controlled failures in a disposable repository and verify one rerun followed by human escalation.
+For release verification, force two controlled failures in a disposable repository and verify one rerun followed by human escalation. Do not perform this destructive test in the learner repository.
 
 ## Stage state
 

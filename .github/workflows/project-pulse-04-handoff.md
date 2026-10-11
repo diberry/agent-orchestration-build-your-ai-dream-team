@@ -7,7 +7,7 @@ on:
   roles: [admin, maintainer, write]
   reaction: eyes
   status-comment: true
-if: ${{ !contains(github.event.issue.labels.*.name, 'agentic:needs-human') }}
+if: ${{ vars.AGENTIC_SETUP_COMPLETE == 'true' && !contains(github.event.issue.labels.*.name, 'agentic:needs-human') }}
 permissions:
   actions: read
   contents: read

@@ -2,31 +2,9 @@ name: Agentic workflow policy
 
 on:
   pull_request:
-    paths:
-      - .github/workflows/project-pulse-*.md
-      - .github/workflows/project-pulse-*.lock.yml
-      - .github/workflows/agentic_commands.yml
-      - .github/workflows/agentics-maintenance.yml
-      - .github/workflows/agentic-observability.yml
-      - .github/workflows/agentic-retry-controller.yml
-      - .github/workflows/agentic-workflow-policy.yml
-      - .github/workflows/project-pulse-contract.yml
-      - .github/scripts/**
-      - .github/copilot-instructions.md
-      - .github/instructions/**
   push:
     branches:
       - main
-    paths:
-      - .github/workflows/project-pulse-*.md
-      - .github/workflows/project-pulse-*.lock.yml
-      - .github/workflows/agentic_commands.yml
-      - .github/workflows/agentics-maintenance.yml
-      - .github/workflows/agentic-observability.yml
-      - .github/workflows/agentic-retry-controller.yml
-      - .github/workflows/agentic-workflow-policy.yml
-      - .github/workflows/project-pulse-contract.yml
-      - .github/scripts/**
   workflow_dispatch:
 
 permissions:
