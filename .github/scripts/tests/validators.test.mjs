@@ -209,6 +209,35 @@ test("exercise start and every agentic stage require completed setup", () => {
   assert.match(readFileSync(path.join(repoRoot, "README.md"), "utf8"), /\]\(\.\.\/\.\.\/issues\/1\)/);
 });
 
+test("publication gates and evidence consumers preserve the sanitized boundary", () => {
+  const workflowDir = path.join(repoRoot, ".github", "workflows");
+  for (const source of ["project-pulse-03-build.md", "project-pulse-04-handoff.md"]) {
+    const content = readFileSync(path.join(workflowDir, source), "utf8");
+    assert.match(content, /post-steps:/);
+    assert.match(content, /jobs:\s+safe_outputs:\s+pre-steps:/s);
+    assert.match(content, /if: needs\.agent\.result != 'success'/);
+    assert.match(content, /Enforce Project Pulse validation/);
+    assert.match(content, /Enforce Project Pulse smoke test/);
+
+    const compiled = readFileSync(path.join(workflowDir, source.replace(/\.md$/, ".lock.yml")), "utf8");
+    const gateIndex = compiled.indexOf("name: Block publication unless deterministic gates pass");
+    const processorIndex = compiled.indexOf("name: Process Safe Outputs");
+    assert.ok(gateIndex >= 0 && gateIndex < processorIndex, `${source} must gate generated safe-output processing`);
+    assert.match(compiled, /if: needs\.agent\.result != 'success'/);
+  }
+
+  const handoff = readFileSync(path.join(workflowDir, "project-pulse-04-handoff.md"), "utf8");
+  assert.match(handoff, /Require successful Project Pulse contract/);
+  assert.match(handoff, /latest\.status !== "completed" \|\| latest\.conclusion !== "success"/);
+
+  for (const workflow of ["agentic-observability.yml", "agentic-retry-controller.yml"]) {
+    const content = readFileSync(path.join(workflowDir, workflow), "utf8");
+    assert.match(content, /--name "\$artifact_name"/);
+    assert.doesNotMatch(content, /gh run download "\$RUN_ID" --dir evidence/);
+    assert.doesNotMatch(content, /^\s+evidence\/\s*$/m);
+  }
+});
+
 test("validate-project-pulse rejects the invalid fixture", () => {
   const fixture = path.join(scriptsDir, "fixtures", "project-pulse-invalid");
   const result = runScript("validate-project-pulse.mjs", ["--root", fixture, "--json"]);

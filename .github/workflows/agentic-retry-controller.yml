@@ -35,9 +35,20 @@ jobs:
       - name: Download failure evidence
         id: evidence
         continue-on-error: true
+        shell: bash
         run: |
           mkdir -p evidence
-          gh run download "$RUN_ID" --dir evidence
+          mapfile -t artifact_names < <(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts?per_page=100" \
+              --jq '.artifacts[] | select(.expired == false and (.name | startswith("project-pulse-stage-"))) | .name'
+          )
+          for artifact_name in "${artifact_names[@]}"; do
+            if [[ ! "$artifact_name" =~ ^project-pulse-stage-[A-Za-z0-9._-]+$ ]]; then
+              echo "Refusing unexpected artifact name: $artifact_name" >&2
+              exit 1
+            fi
+            gh run download "$RUN_ID" --name "$artifact_name" --dir "evidence/$artifact_name"
+          done
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
@@ -63,14 +74,9 @@ jobs:
           observed_scope=unavailable
           if find evidence -name scope-check.json -print -quit | grep -q .; then
             observed_scope="$(find evidence -name scope-check.json -print -quit)"
-            if grep -q '"ok"[[:space:]]*:[[:space:]]*false' "$observed_scope"; then
+            if node -e "const s=JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8')); process.exit(s.ok === false ? 0 : 1)" "$observed_scope"; then
               classification=scope
             fi
-          fi
-          if grep -RiqE 'authorization denied|authentication failed|inference_access_error' evidence 2>/dev/null; then
-            classification=auth
-          elif grep -RiqE 'policy violation|permission ceiling|out-of-scope' evidence 2>/dev/null; then
-            classification=policy
           fi
           echo "classification=$classification" >> "$GITHUB_OUTPUT"
           echo "observed_scope=$observed_scope" >> "$GITHUB_OUTPUT"
@@ -191,5 +197,6 @@ jobs:
           retention-days: 30
           path: |
             retry-decision.json
-            evidence/
+            evidence/**/run-manifest.json
+            evidence/**/scope-check.json
           if-no-files-found: warn

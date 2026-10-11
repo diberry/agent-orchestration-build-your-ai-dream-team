@@ -29,6 +29,29 @@ tools:
   cli-proxy: false
   github:
     toolsets: [context, repos, issues, pull_requests]
+post-steps:
+  - name: Enforce Project Pulse validation
+    run: node .github/scripts/validate-project-pulse.mjs --log .agentic-evidence/validation.log
+  - name: Enforce Project Pulse smoke test
+    run: node .github/scripts/smoke-test-project-pulse.mjs --log .agentic-evidence/http-smoke-test.log
+  - name: Collect sanitized build evidence
+    run: >-
+      node .github/scripts/collect-agentic-evidence.mjs
+      --out .agentic-evidence
+      --git-changed-files
+      --allowed-files app/index.html,app/styles.css,app/project-data.json,.vscode/launch.json
+      --stage 03-build
+      --safe-output-file .agentic-evidence/validation.log
+      --max-bytes 12000
+      --max-lines 300
+jobs:
+  safe_outputs:
+    pre-steps:
+      - name: Block publication unless deterministic gates pass
+        if: needs.agent.result != 'success'
+        run: |
+          echo "The agent job or a deterministic post-agent validation gate failed." >&2
+          exit 1
 safe-outputs:
   create-pull-request:
     draft: true
