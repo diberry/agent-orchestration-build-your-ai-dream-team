@@ -70,14 +70,13 @@ jobs:
         id: failure
         shell: bash
         run: |
-          classification=transient
           observed_scope=unavailable
+          args=(--jobs run-jobs.json)
           if find evidence -name scope-check.json -print -quit | grep -q .; then
             observed_scope="$(find evidence -name scope-check.json -print -quit)"
-            if node -e "const s=JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8')); process.exit(s.ok === false ? 0 : 1)" "$observed_scope"; then
-              classification=scope
-            fi
+            args+=(--scope "$observed_scope")
           fi
+          classification="$(node .github/scripts/classify-agentic-failure.mjs "${args[@]}")"
           echo "classification=$classification" >> "$GITHUB_OUTPUT"
           echo "observed_scope=$observed_scope" >> "$GITHUB_OUTPUT"
 

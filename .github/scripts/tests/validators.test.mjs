@@ -10,6 +10,7 @@ import {
   parseArgs
 } from "../setup-agentic-workflows.mjs";
 import { detectSafeOutputState } from "../detect-agentic-safe-output-state.mjs";
+import { classifyFailure } from "../classify-agentic-failure.mjs";
 import { finalizeEvidence } from "../finalize-agentic-evidence.mjs";
 
 const scriptsDir = path.resolve(import.meta.dirname, "..");
@@ -151,22 +152,23 @@ test("safe-output retry detection is conservative after any write-capable job st
 
 test("observability finalizer records actual outcome and published pull request", () => {
   const evidenceDir = mkdtempSync(path.join(tmpdir(), "agentic-final-evidence-"));
+  const metadataDir = mkdtempSync(path.join(tmpdir(), "agentic-safe-output-"));
   try {
     const stageDir = path.join(evidenceDir, "stage");
     mkdirSync(stageDir, { recursive: true });
     writeFileSync(path.join(stageDir, "run-manifest.json"), JSON.stringify({
       urls: { issue: "https://github.com/owner/repo/issues/7", pullRequest: "" }
     }));
-    writeFileSync(
-      path.join(stageDir, "safe-output.log"),
-      "Created https://github.com/owner/repo/pull/8\n",
-      "utf8"
-    );
+    writeFileSync(path.join(metadataDir, "temporary-id-map.json"), JSON.stringify({
+      aw_pr1234: { repo: "owner/repo", number: 8 }
+    }));
     const result = finalizeEvidence({
       evidenceDir,
       conclusion: "failure",
       runUrl: "https://github.com/owner/repo/actions/runs/100",
-      endTime: "2026-10-11T00:00:00Z"
+      endTime: "2026-10-11T00:00:00Z",
+      safeOutputMetadataDir: metadataDir,
+      repository: "owner/repo"
     });
     assert.equal(result.conclusion, "failure");
     assert.equal(result.issueUrl, "https://github.com/owner/repo/issues/7");
@@ -174,7 +176,22 @@ test("observability finalizer records actual outcome and published pull request"
     assert.equal(result.artifactUrl, "https://github.com/owner/repo/actions/runs/100#artifacts");
   } finally {
     rmSync(evidenceDir, { recursive: true, force: true });
+    rmSync(metadataDir, { recursive: true, force: true });
   }
+});
+
+test("failure classification uses trusted job metadata and refuses unknowns", () => {
+  assert.equal(classifyFailure([], null), "unknown");
+  assert.equal(classifyFailure([], { ok: false }), "scope");
+  assert.equal(classifyFailure([
+    { name: "agent", conclusion: "failure", steps: [{ name: "Enforce Project Pulse validation", conclusion: "failure" }] }
+  ], null), "validation");
+  assert.equal(classifyFailure([
+    { name: "detection", conclusion: "failure", steps: [] }
+  ], null), "policy");
+  assert.equal(classifyFailure([
+    { name: "activation", conclusion: "failure", steps: [{ name: "Check team membership", conclusion: "failure" }] }
+  ], null), "auth");
 });
 
 test("exercise start and every agentic stage require completed setup", () => {
@@ -236,6 +253,18 @@ test("publication gates and evidence consumers preserve the sanitized boundary",
     assert.doesNotMatch(content, /gh run download "\$RUN_ID" --dir evidence/);
     assert.doesNotMatch(content, /^\s+evidence\/\s*$/m);
   }
+
+  const observability = readFileSync(path.join(workflowDir, "agentic-observability.yml"), "utf8");
+  assert.ok(
+    observability.indexOf("Download trusted safe-output metadata")
+      < observability.indexOf("Finalize run evidence")
+  );
+  assert.match(observability, /--name safe-outputs-items/);
+  assert.match(observability, /--safe-output-metadata "\$RUNNER_TEMP\/safe-output-metadata"/);
+
+  const retry = readFileSync(path.join(workflowDir, "agentic-retry-controller.yml"), "utf8");
+  assert.match(retry, /classify-agentic-failure\.mjs/);
+  assert.doesNotMatch(retry, /classification=transient/);
 });
 
 test("validate-project-pulse rejects the invalid fixture", () => {

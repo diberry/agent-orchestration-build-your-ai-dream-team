@@ -48,11 +48,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
 
+      - name: Download trusted safe-output metadata
+        id: safe_output_metadata
+        continue-on-error: true
+        run: >-
+          gh run download "$RUN_ID"
+          --name safe-outputs-items
+          --dir "$RUNNER_TEMP/safe-output-metadata"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+
       - name: Finalize run evidence
         if: always()
         run: >-
           node .github/scripts/finalize-agentic-evidence.mjs
           --evidence evidence
+          --safe-output-metadata "$RUNNER_TEMP/safe-output-metadata"
+          --repository "$GITHUB_REPOSITORY"
           --out evidence/final-run-manifest.json
           --conclusion "$CONCLUSION"
           --run-url "$RUN_URL"
