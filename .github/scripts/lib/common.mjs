@@ -150,6 +150,10 @@ export function redactValue(value) {
     return text;
   }
   let redacted = text;
+  redacted = redacted.replace(
+    /^(\s*(?:authorization|proxy-authorization|cookie|set-cookie)\s*:\s*)[^\r\n]*$/gim,
+    "$1[REDACTED]"
+  );
   redacted = redacted.replace(/gh[pousr]_[A-Za-z0-9_]{20,}/g, "[REDACTED]");
   redacted = redacted.replace(/github_pat_[A-Za-z0-9_]{20,}/g, "[REDACTED]");
   redacted = redacted.replace(/\b[A-Za-z0-9+/]{32,}={0,2}\b/g, "[REDACTED]");

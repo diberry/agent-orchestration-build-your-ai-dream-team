@@ -74,17 +74,17 @@ function classify({ conclusion, failureClass, safeOutputState }) {
   if (normalizedConclusion === "success") {
     return { category: "success", retryable: false, terminal: true, reason: "run succeeded" };
   }
-  if (normalizedConclusion === "cancelled" || normalizedClass === "human_cancellation" || normalizedClass === "cancelled") {
-    return { category: "refuse", retryable: false, terminal: true, reason: "human cancellation is not retryable" };
-  }
-  if (REFUSAL_CLASSES.has(normalizedClass)) {
-    return { category: "refuse", retryable: false, terminal: true, reason: `${normalizedClass} failures are not retryable` };
-  }
   if (normalizedSafeOutput === "unsafe") {
     return { category: "escalate", retryable: false, terminal: true, reason: "safe-output processing may have applied an external write" };
   }
   if (normalizedSafeOutput === "partial" || normalizedSafeOutput === "applied") {
     return { category: "escalate", retryable: false, terminal: true, reason: `safe output state ${normalizedSafeOutput} must not be retried` };
+  }
+  if (normalizedConclusion === "cancelled" || normalizedClass === "human_cancellation" || normalizedClass === "cancelled") {
+    return { category: "refuse", retryable: false, terminal: true, reason: "human cancellation is not retryable" };
+  }
+  if (REFUSAL_CLASSES.has(normalizedClass)) {
+    return { category: "refuse", retryable: false, terminal: true, reason: `${normalizedClass} failures are not retryable` };
   }
   if (normalizedConclusion === "action_required" || normalizedConclusion === "startup_failure") {
     return { category: "refuse", retryable: false, terminal: true, reason: `${normalizedConclusion} requires human attention` };

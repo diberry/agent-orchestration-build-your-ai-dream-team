@@ -284,7 +284,7 @@ test("collect-agentic-evidence writes sanitized deterministic evidence files", (
       "--escalated-to-human",
       "false",
       "--safe-output",
-      `ok ${secretFixture}`
+      `ok ${secretFixture}\nAuthorization: ******\nCookie: session=abc123\nSet-Cookie: refresh=def456`
     ]);
     assert.equal(result.status, 0, result.stderr || result.stdout);
     const manifest = JSON.parse(readFileSync(path.join(outDir, "run-manifest.json"), "utf8"));
@@ -315,6 +315,10 @@ test("collect-agentic-evidence writes sanitized deterministic evidence files", (
     assert.equal(scope.ok, true);
     assert.equal(safeOutput.secretPatternsRedacted, true);
     assert.doesNotMatch(JSON.stringify({ manifest, safeOutput, changed }), new RegExp(secretFixture));
+    assert.match(safeOutput.preview, /Authorization: \[REDACTED\]/);
+    assert.match(safeOutput.preview, /Cookie: \[REDACTED\]/);
+    assert.match(safeOutput.preview, /Set-Cookie: \[REDACTED\]/);
+    assert.doesNotMatch(safeOutput.preview, /session=abc123|refresh=def456/);
     assert.equal(changed, "app/index.html\napp/styles.css\n");
   } finally {
     rmSync(outDir, { recursive: true, force: true });
@@ -489,22 +493,24 @@ test("evaluate-agentic-retry escalates every second non-successful attempt", () 
   }
 });
 
-test("evaluate-agentic-retry escalates unsafe, partial, or applied safe-output states", () => {
+test("evaluate-agentic-retry gives unsafe, partial, or applied safe-output states precedence", () => {
   for (const safeOutputState of ["unsafe", "partial", "applied"]) {
-    const result = runScript("evaluate-agentic-retry.mjs", [
-      "--conclusion",
-      "failure",
-      "--attempt",
-      "1",
-      "--failure-class",
-      "transient",
-      "--safe-output-state",
-      safeOutputState
-    ]);
-    assert.equal(result.status, 11, `${safeOutputState}: ${result.stdout} ${result.stderr}`);
-    const json = parseJson(result.stdout);
-    assert.equal(json.authorizeRetry, false);
-    assert.equal(json.action, "escalate");
+    for (const failureClass of ["transient", "auth", "policy", "scope"]) {
+      const result = runScript("evaluate-agentic-retry.mjs", [
+        "--conclusion",
+        "failure",
+        "--attempt",
+        "1",
+        "--failure-class",
+        failureClass,
+        "--safe-output-state",
+        safeOutputState
+      ]);
+      assert.equal(result.status, 11, `${safeOutputState}/${failureClass}: ${result.stdout} ${result.stderr}`);
+      const json = parseJson(result.stdout);
+      assert.equal(json.authorizeRetry, false);
+      assert.equal(json.action, "escalate");
+    }
   }
 });
 
