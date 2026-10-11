@@ -1,0 +1,29 @@
+name: Start a Project Pulse agentic run
+description: Track a new issue-driven Project Pulse orchestration exercise.
+title: "Exercise: Agent Orchestration Build Your AI Dream Team"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this issue as the control plane for the Project Pulse workflows.
+        Run one command at a time and merge its reviewed pull request before continuing.
+        If setup has not passed, follow the [operator setup guide](../../blob/main/docs/agentic-workflows-operations.md#one-time-setup).
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Operator preflight
+      options:
+        - label: "`node .github/scripts/setup-agentic-workflows.mjs --check` passes."
+          required: true
+  - type: markdown
+    attributes:
+      value: |
+        Begin with `/pulse-team`.
+
+        The complete sequence is:
+
+        1. `/pulse-team`
+        2. `/pulse-plan`
+        3. `/pulse-design`
+        4. `/pulse-build`
+        5. `/pulse-handoff`

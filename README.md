@@ -1,33 +1,39 @@
-<div align="center">
+# Agent Orchestration: Build Your AI Dream Team
 
-# 🎉 Congratulations diberry! 🎉
+<img src="https://octodex.github.com/images/Professortocat_v2.png" align="right" height="200px" alt="Mona the Octocat" />
 
-<img src="https://octodex.github.com/images/welcometocat.png" height="200px" />
+Build Mona's Project Pulse dashboard by coordinating specialist roles through **GitHub Agentic Workflows**.
 
-### 🌟 You've successfully completed the exercise! 🌟
+## Repository setup
 
-## 🚀 Share Your Success!
+Before learners begin, a repository administrator must complete the one-time setup:
 
-**Show off your new skills and inspire others!**
+1. Create the two least-privilege fine-grained PATs described in the [operator setup guide](docs/agentic-workflows-operations.md#one-time-setup).
+1. From the default branch, run:
 
-<a href="https://twitter.com/intent/tweet?text=I%20just%20completed%20the%20%22Agent%20Orchestration%20Build%20Your%20AI%20Dream%20Team%22%20GitHub%20Skills%20hands-on%20exercise!%20%F0%9F%8E%89%0A%0Ahttps%3A%2F%2Fgithub.com%2Fdiberry%2Fagent-orchestration-build-your-ai-dream-team%0A%0A%23GitHubSkills%20%23OpenSource%20%23GitHubLearn" target="_blank" rel="noopener noreferrer">
-  <img src="https://img.shields.io/badge/Share%20on%20X-1da1f2?style=for-the-badge&logo=x&logoColor=white" alt="Share on X" />
-</a>
-<a href="https://bsky.app/intent/compose?text=I%20just%20completed%20the%20%22Agent%20Orchestration%20Build%20Your%20AI%20Dream%20Team%22%20GitHub%20Skills%20hands-on%20exercise!%20%F0%9F%8E%89%0A%0Ahttps%3A%2F%2Fgithub.com%2Fdiberry%2Fagent-orchestration-build-your-ai-dream-team%0A%0A%23GitHubSkills%20%23OpenSource%20%23GitHubLearn" target="_blank" rel="noopener noreferrer">
-  <img src="https://img.shields.io/badge/Share%20on%20Bluesky-0085ff?style=for-the-badge&logo=bluesky&logoColor=white" alt="Share on Bluesky" />
-</a>
-<a href="https://www.linkedin.com/feed/?shareActive=true&text=I%20just%20completed%20the%20%22Agent%20Orchestration%20Build%20Your%20AI%20Dream%20Team%22%20GitHub%20Skills%20hands-on%20exercise!%20%F0%9F%8E%89%0A%0Ahttps%3A%2F%2Fgithub.com%2Fdiberry%2Fagent-orchestration-build-your-ai-dream-team%0A%0A%23GitHubSkills%20%23OpenSource%20%23GitHubLearn" target="_blank" rel="noopener noreferrer">
-  <img src="https://img.shields.io/badge/Share%20on%20LinkedIn-0077b5?style=for-the-badge&logo=linkedin&logoColor=white" alt="Share on LinkedIn" />
-</a>
+   ```shell
+   node .github/scripts/setup-agentic-workflows.mjs --configure
+   ```
 
-### 🎯 What's Next?
+The script prompts only for missing secret values and configures everything else. The exercise start workflow and all five slash commands remain locked until setup passes. Rerun the read-only check at any time with:
 
-**Keep the momentum going!**
+```shell
+node .github/scripts/setup-agentic-workflows.mjs --check
+```
 
-[![](https://img.shields.io/badge/Return%20to%20Exercise-%E2%86%92-1f883d?style=for-the-badge&logo=github&labelColor=197935)](https://github.com/diberry/agent-orchestration-build-your-ai-dream-team/issues/1)
-[![GitHub Skills](https://img.shields.io/badge/Explore%20GitHub%20Skills-000000?style=for-the-badge&logo=github&logoColor=white)](https://learn.github.com/skills)
+## How the exercise works
 
-*There's no better way to learn than building things!* 🚀
+The exercise issue is the control plane:
 
-</div>
+1. Post the slash command from the current lesson.
+1. Follow the GitHub Actions run.
+1. Review its evidence and draft pull request.
+1. Merge approved work to unlock the next lesson.
 
+The sequence is `/pulse-team`, `/pulse-plan`, `/pulse-design`, `/pulse-build`, and `/pulse-handoff`. Planner, Designer, Coder, and Orchestrator produce durable artifacts with explicit ownership boundaries. Agent jobs have read-only repository permissions; compiler-generated safe-output jobs publish draft pull requests, issue comments, and evidence for human review.
+
+Open the exercise issue to begin:
+
+[![Go to Exercise](https://img.shields.io/badge/Go%20to%20Exercise-%E2%86%92-1f883d?style=for-the-badge&logo=github&labelColor=197935)](../../issues/1)
+
+GitHub Agentic Workflows are in public preview. See [GitHub Agentic Workflows operations](docs/agentic-workflows-operations.md) for token scopes, exactly what the setup script changes, verification, and troubleshooting.

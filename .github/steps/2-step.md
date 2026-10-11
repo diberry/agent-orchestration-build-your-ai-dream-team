@@ -1,85 +1,79 @@
-## Step 2: Plan Project Pulse with the Orchestrator and Planner
+## Step 2: Plan Project Pulse
 
 Great work meeting the agent team! :sparkles:
 
-Now you will ask the Orchestrator to involve the Planner and create an implementation plan for Mona's Project Pulse dashboard.
+Now the Planner will turn Mona's Project Pulse brief into an implementation plan. This stage demonstrates a key orchestration practice: agree on ownership, dependencies, and validation before implementation begins.
 
-### Why plan before building?
+### Why use a separate planning workflow?
 
-Intermediate agent workflows work best when the Orchestrator asks for a plan before implementation. The Planner should identify the files to create, dependencies between tasks, which work can happen in parallel, and what validation should prove the dashboard is complete.
+The Planner researches and plans, but it does not build the application. Its output becomes a read-only contract for the Designer and Coder workflows that follow.
 
-For Project Pulse, the expected app files are:
+A useful orchestration plan must:
 
-- `app/index.html`
-- `app/styles.css`
-- `app/project-data.json`
-- `.vscode/launch.json`
+- Give each file a single owner.
+- Identify work that can safely run in parallel.
+- Keep dependent or overlapping work sequential.
+- Define evidence that will prove the result is complete.
+- Stop at the planning boundary instead of implementing the solution.
 
 ### :keyboard: Activity: Create the implementation plan
 
-1. Return to your Codespace terminal.
+1. In a new comment on this exercise issue, enter:
 
-2. Start Copilot CLI if it is not already running:
-
-> [!NOTE]
-> If you are not already in the Copilot CLI interactive mode, run this command.
-
-   ```bash
-   copilot --allow-all --enable-all-github-mcp-tools
+   ```text
+   /pulse-plan
    ```
 
-3. In Copilot CLI, run `/agent`, select **Orchestrator**, then paste this prompt:
+1. Wait for the workflow triggered by `/pulse-plan` to start, then open its Actions run.
 
-   > ![Static Badge](https://img.shields.io/badge/-Prompt-text?style=social&logo=github%20copilot)
-   >
-   > ```prompt
-   > Ask the Planner to create an implementation plan for the Project Pulse dashboard.
-   >
-   > Save the plan in docs/project-pulse-plan.md.
-   >
-   > Include app/index.html, app/styles.css, app/project-data.json,
-   > and .vscode/launch.json in the file assignments.
-   >
-   > Include Designer and Coder responsibilities.
-   >
-   > Include dependencies.
-   >
-   > Include parallel work decisions.
-   >
-   > Include validation expectations.
-   > ```
+1. Review the run summary and evidence. Confirm that:
 
-4. Review `docs/project-pulse-plan.md`.
+   - The workflow acted as the Planner.
+   - It used `docs/agent-team.md`, `.github/project-pulse-brief.md`, and the Planner definition as inputs.
+   - It treated those inputs as read-only.
+   - Its proposed file scope contains only `docs/project-pulse-plan.md`.
+   - Its requirement and ownership checks passed.
 
-5. Make sure the plan includes:
+1. Open the draft pull request titled **Plan the Project Pulse dashboard**.
+
+1. Review `docs/project-pulse-plan.md`. Make sure the plan includes:
 
    - The Project Pulse goal.
-   - Implementation phases.
+   - Ordered implementation phases.
+   - Orchestrator, Designer, and Coder responsibilities.
    - File assignments for `app/index.html`, `app/styles.css`, `app/project-data.json`, and `.vscode/launch.json`.
-   - Designer and Coder responsibilities.
-   - Dependencies between the files.
-   - Parallel work decisions.
-   - Validation expectations.
+   - Single-writer ownership with no overlapping file assignments.
+   - Dependencies between planning, design, implementation, and validation.
+   - Decisions about sequential and parallel work.
+   - Risks, edge cases, and validation expectations.
 
-6. Ask Copilot CLI to stage, commit, and push your work. Copy and paste this prompt into the Copilot CLI interactive mode:
+1. Check that the plan preserves the role boundaries:
 
-   > ![Static Badge](https://img.shields.io/badge/-Prompt-text?style=social&logo=github%20copilot)
-   >
-   > ```prompt
-   > Stage docs/project-pulse-plan.md.
-   >
-   > Commit it with the message "Plan the Project Pulse dashboard".
-   >
-   > Push the commit.
-   > ```
+   - Planner creates only the plan.
+   - Designer owns visual, interaction, responsive, and accessibility decisions.
+   - Coder owns implementation of the approved plan and design contract.
+   - Orchestrator coordinates the stage sequence and final handoff.
 
-7. Mona will check your work and post the next lesson.
+1. Review the **Files changed** tab and checks:
+
+   - Only `docs/project-pulse-plan.md` should change.
+   - No application, launch, agent, workflow, or grader file should change.
+   - Confirm all required checks pass.
+
+1. When the plan is correct, mark the pull request ready if needed, complete the required human review, and merge it.
+
+1. Return to this issue. The Step 2 grader will check the merged plan and post the next lesson.
+
+> [!IMPORTANT]
+> Do not start design or implementation before this plan is merged. Later workflows use the approved plan on the default branch as their ownership and sequencing contract.
 
 <details>
 <summary>Having trouble? 🤷</summary><br/>
 
-- Make sure you created `docs/project-pulse-plan.md`.
-- Include `Project Pulse`, `Designer`, `Coder`, the three app files, `.vscode/launch.json`, `parallel`, and `validation`.
-- Make sure you pushed your commit.
+- If no run starts, post `/pulse-plan` as a standalone comment after the Step 1 pull request is merged.
+- If the plan assigns the same file to multiple roles, request a correction before merging.
+- If the workflow creates application files, do not merge the pull request; that exceeds the Planner boundary.
+- If two attempts fail, follow the `agentic:needs-human` escalation comment rather than posting the command again.
+- If the lesson does not advance, confirm `docs/project-pulse-plan.md` is on the default branch and the Step 2 grader passed.
 
 </details>

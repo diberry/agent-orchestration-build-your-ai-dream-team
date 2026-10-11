@@ -38,6 +38,6 @@ When the Orchestrator assigns runnable app work:
 - Do not create launch or tooling files unless they are assigned or clearly required by the runnable app task.
 - Report what changed, what was validated, and any remaining risk.
 
-## Git control
+## Publication control
 
-- Do not stage, commit, or push changes. The learner controls all git operations through Copilot CLI prompts.
+- Do not publish, approve, or merge changes directly. The active workflow's safe outputs create a draft pull request for human review.

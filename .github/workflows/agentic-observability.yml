@@ -1,0 +1,117 @@
+name: Agentic workflow observability
+
+on:
+  workflow_run:
+    workflows:
+      - Project Pulse 01 - Document team
+      - Project Pulse 02 - Plan dashboard
+      - Project Pulse 03A - Design dashboard
+      - Project Pulse 03B - Build dashboard
+      - Project Pulse 04 - Validate and hand off
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  summarize:
+    name: Publish sanitized run summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download stage evidence
+        id: download
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p evidence
+          mapfile -t artifact_names < <(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts?per_page=100" \
+              --jq '.artifacts[] | select(.expired == false and (.name | startswith("project-pulse-stage-"))) | .name'
+          )
+          if [ "${#artifact_names[@]}" -eq 0 ]; then
+            echo "No sanitized Project Pulse stage artifact was published." >&2
+            exit 1
+          fi
+          for artifact_name in "${artifact_names[@]}"; do
+            if [[ ! "$artifact_name" =~ ^project-pulse-stage-[A-Za-z0-9._-]+$ ]]; then
+              echo "Refusing unexpected artifact name: $artifact_name" >&2
+              exit 1
+            fi
+            gh run download "$RUN_ID" --name "$artifact_name" --dir "evidence/$artifact_name"
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+
+      - name: Download trusted safe-output metadata
+        id: safe_output_metadata
+        continue-on-error: true
+        run: >-
+          gh run download "$RUN_ID"
+          --name safe-outputs-items
+          --dir "$RUNNER_TEMP/safe-output-metadata"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+
+      - name: Finalize run evidence
+        if: always()
+        run: >-
+          node .github/scripts/finalize-agentic-evidence.mjs
+          --evidence evidence
+          --safe-output-metadata "$RUNNER_TEMP/safe-output-metadata"
+          --repository "$GITHUB_REPOSITORY"
+          --out evidence/final-run-manifest.json
+          --conclusion "$CONCLUSION"
+          --run-url "$RUN_URL"
+          --end-time "$END_TIME"
+        env:
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          END_TIME: ${{ github.event.workflow_run.updated_at }}
+
+      - name: Write Actions summary
+        run: |
+          {
+            echo "# Project Pulse agentic run"
+            echo
+            echo "- Workflow: $WORKFLOW_NAME"
+            echo "- Run: [$RUN_ID]($RUN_URL)"
+            echo "- Attempt: $RUN_ATTEMPT"
+            echo "- Conclusion: $CONCLUSION"
+            echo "- Actor: $ACTOR"
+            echo "- Head SHA: \`$HEAD_SHA\`"
+            echo "- Evidence downloaded: $DOWNLOAD_OUTCOME"
+            echo
+            echo "Use \`gh aw logs --run-id $RUN_ID\` and \`gh aw audit $RUN_ID\` for detailed review."
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          ACTOR: ${{ github.event.workflow_run.actor.login }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
+
+      - name: Upload observability bundle
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: project-pulse-observability-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            evidence/**/run-manifest.json
+            evidence/**/scope-check.json
+            evidence/**/safe-output-result.json
+            evidence/**/changed-files.txt
+            evidence/**/validation.log
+            evidence/**/http-smoke-test.log
+            evidence/final-run-manifest.json

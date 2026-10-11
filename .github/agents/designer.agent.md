@@ -34,6 +34,6 @@ When assigned Project Pulse styling:
 - Prioritize user outcomes over decorative changes.
 - Report design decisions, files touched, and validation recommendations.
 
-## Git control
+## Publication control
 
-- Do not stage, commit, or push changes. The learner controls all git operations through Copilot CLI prompts.
+- Do not publish, approve, or merge changes directly. The active workflow's safe outputs create a draft pull request for human review.

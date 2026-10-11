@@ -17,15 +17,33 @@ env:
   REVIEW_FILE: ".github/steps/x-review.md"
 
 jobs:
+  detect_step_work:
+    name: Detect learner work
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.detect.outputs.ready }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Detect placeholder
+        id: detect
+        run: |
+          if grep -qi "learner placeholder" docs/final-handoff.md; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
   find_exercise:
     if: github.event_name != 'push' || (github.event.created == false && github.event.head_commit.message != 'Initial commit')
     name: Find Exercise Issue
     uses: skills/exercise-toolkit/.github/workflows/find-exercise-issue.yml@v0.9.3
 
   check_step_work:
+    if: needs.detect_step_work.outputs.ready == 'true'
     name: Check step work
     runs-on: ubuntu-latest
-    needs: [find_exercise]
+    needs: [detect_step_work, find_exercise]
     env:
       ISSUE_REPOSITORY: ${{ github.repository }}
       ISSUE_NUMBER: ${{ needs.find_exercise.outputs.issue-number }}

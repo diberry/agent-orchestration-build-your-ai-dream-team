@@ -15,14 +15,44 @@ env:
   STEP_1_FILE: ".github/steps/1-step.md"
 
 jobs:
+  setup_gate:
+    if: |
+      !github.event.repository.is_template
+    name: Agentic setup gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require completed operator setup
+        env:
+          SETUP_COMPLETE: ${{ vars.AGENTIC_SETUP_COMPLETE }}
+          COPILOT_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          CI_TRIGGER_TOKEN: ${{ secrets.GH_AW_CI_TRIGGER_TOKEN }}
+        run: |
+          if [ "$SETUP_COMPLETE" != "true" ] ||
+             [ -z "$COPILOT_TOKEN" ] ||
+             [ -z "$CI_TRIGGER_TOKEN" ]; then
+            {
+              echo "## Agentic setup required"
+              echo
+              echo "The exercise cannot begin until a repository administrator runs:"
+              echo
+              echo '```text'
+              echo "node .github/scripts/setup-agentic-workflows.mjs --configure"
+              echo '```'
+              echo
+              echo "See docs/agentic-workflows-operations.md."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
   start_exercise:
+    needs: [setup_gate]
     if: |
       !github.event.repository.is_template
     name: Start Exercise
     uses: skills/exercise-toolkit/.github/workflows/start-exercise.yml@v0.9.3
     with:
       exercise-title: "Agent Orchestration Build Your AI Dream Team"
-      intro-message: "Practice coordinating specialist agents from a Codespace terminal with GitHub Copilot CLI"
+      intro-message: "Practice coordinating specialist roles with issue-driven GitHub Agentic Workflows"
 
   post_next_step_content:
     name: Post next step content

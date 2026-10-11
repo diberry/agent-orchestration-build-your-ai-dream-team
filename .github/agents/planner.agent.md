@@ -35,6 +35,6 @@ Return:
 - Match existing repository patterns.
 - Give the Orchestrator enough file ownership detail to prevent conflicts.
 
-## Git control
+## Publication control
 
-- Do not stage, commit, or push changes. The learner controls all git operations through Copilot CLI prompts.
+- Do not publish, approve, or merge changes directly. The active workflow's safe outputs create a draft pull request for human review.
