@@ -26,7 +26,7 @@ This implementation records the repository owner's request to implement the migr
 
 ## One-time setup
 
-The setup is intentionally automated. A repository administrator does only two things manually:
+Repository configuration is intentionally automated. A repository administrator does only two things manually to configure it:
 
 1. Create the two fine-grained PATs in the following table.
 1. Run one command and paste each token only when GitHub CLI prompts for it.
@@ -56,7 +56,7 @@ The script is safe to rerun. It:
 - creates or updates the active `Project Pulse agentic workflow guardrails` ruleset on the default branch;
 - requires a pull request, one human approval, CODEOWNER review, resolution of review threads, and approval from someone other than the last pusher;
 - blocks deletion and non-fast-forward updates;
-- requires the always-running `Agentic workflow policy` and `Project Pulse contract` checks; and
+- requires the always-running `Agentic workflow policy` and `Project Pulse contract` checks;
 - runs `gh aw doctor`; and
 - sets `AGENTIC_SETUP_COMPLETE=true` only after configuration and doctor checks pass.
 
@@ -86,6 +86,7 @@ Both required checks run on every pull request so the ruleset never waits for a 
 1. Confirm write permissions occur only in safe-output jobs.
 1. Confirm the draft PR receives an extra empty commit and starts normal CI.
 1. Confirm evidence contains no token prefix, authorization header, or unsanitized secret.
+
 For release verification, force two controlled failures in a disposable repository and verify one rerun followed by human escalation. Do not perform this destructive test in the learner repository.
 
 ## Stage state
@@ -102,7 +103,7 @@ Duplicate or concurrent commands for the same issue and stage are serialized by 
 
 ## Retry policy
 
-Retry infrastructure, engine, validation, and safe-output failures once. Do not retry human cancellation, authorization denial, policy violation, detected scope expansion, or a run that already applied a partial safe output. The controller uses `github.run_attempt`, not model self-reporting.
+Retry infrastructure, engine, validation, and safe-output failures once only when the generated `safe_outputs` job was skipped. If that write-capable job started, treat the result as potentially applied and escalate immediately rather than risk duplicating a pull request or comment. Do not retry human cancellation, authorization denial, policy violation, detected scope expansion, or a run that already applied a partial safe output. The controller uses `github.run_attempt`, not model self-reporting.
 
 ## Evidence
 

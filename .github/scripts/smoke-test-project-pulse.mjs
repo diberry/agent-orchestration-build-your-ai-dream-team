@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { appendFileSync, readFile } from "node:fs";
+import { appendFileSync, mkdirSync, readFile } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
 import process from "node:process";
@@ -70,7 +70,9 @@ async function run() {
     }
     record("Preview server stopped.");
     if (logPath) {
-      appendFileSync(path.resolve(logPath), `${messages.filter(Boolean).join("\n")}\n`, "utf8");
+      const resolvedLogPath = path.resolve(logPath);
+      mkdirSync(path.dirname(resolvedLogPath), { recursive: true });
+      appendFileSync(resolvedLogPath, `${messages.filter(Boolean).join("\n")}\n`, "utf8");
     }
   }
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -9,6 +9,7 @@ import {
   evaluateSetupState,
   parseArgs
 } from "../setup-agentic-workflows.mjs";
+import { detectSafeOutputState } from "../detect-agentic-safe-output-state.mjs";
 
 const scriptsDir = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(scriptsDir, "..", "..");
@@ -42,6 +43,37 @@ test("validate-project-pulse accepts the valid fixture", () => {
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const json = parseJson(result.stdout);
   assert.equal(json.ok, true);
+});
+
+test("validation and smoke helpers create nested evidence logs", () => {
+  const outDir = mkdtempSync(path.join(tmpdir(), "agentic-helper-logs-"));
+  const fixture = path.join(scriptsDir, "fixtures", "project-pulse-valid");
+  try {
+    const validationLog = path.join(outDir, "validation", "validation.log");
+    const validation = runScript("validate-project-pulse.mjs", [
+      "--root",
+      fixture,
+      "--log",
+      validationLog
+    ]);
+    assert.equal(validation.status, 0, validation.stderr || validation.stdout);
+    assert.match(readFileSync(validationLog, "utf8"), /Project Pulse validation: passed/);
+
+    const smokeLog = path.join(outDir, "smoke", "http-smoke-test.log");
+    const smoke = runScript("smoke-test-project-pulse.mjs", [
+      "--root",
+      fixture,
+      "--port",
+      "5512",
+      "--log",
+      smokeLog
+    ]);
+    assert.equal(smoke.status, 0, smoke.stderr || smoke.stdout);
+    assert.equal(existsSync(smokeLog), true);
+    assert.match(readFileSync(smokeLog, "utf8"), /project-data\.json: HTTP 200/);
+  } finally {
+    rmSync(outDir, { recursive: true, force: true });
+  }
 });
 
 test("setup script builds the required default-branch ruleset", () => {
@@ -85,13 +117,34 @@ test("setup check reports missing configuration and accepts complete state", () 
       default_workflow_permissions: "read",
       can_approve_pull_request_reviews: true
     },
-    ruleset: {
-      enforcement: "active",
-      rules: buildRulesetPayload().rules
-    },
+    ruleset: buildRulesetPayload(),
     variable: { name: "AGENTIC_SETUP_COMPLETE", value: "true" }
   });
   assert.deepEqual(complete, []);
+
+  const weakened = buildRulesetPayload();
+  weakened.conditions.ref_name.include = ["refs/heads/not-main"];
+  weakened.rules.find((rule) => rule.type === "pull_request").parameters.required_approving_review_count = 0;
+  assert.ok(evaluateSetupState({
+    secrets: [
+      { name: "COPILOT_GITHUB_TOKEN" },
+      { name: "GH_AW_CI_TRIGGER_TOKEN" }
+    ],
+    label: { name: "agentic:needs-human" },
+    actions: {
+      default_workflow_permissions: "read",
+      can_approve_pull_request_reviews: true
+    },
+    ruleset: weakened,
+    variable: { name: "AGENTIC_SETUP_COMPLETE", value: "true" }
+  }).length >= 2);
+});
+
+test("safe-output retry detection is conservative after any write-capable job starts", () => {
+  assert.equal(detectSafeOutputState([{ name: "safe_outputs", conclusion: "skipped" }]), "none");
+  assert.equal(detectSafeOutputState([{ name: "Process Safe Outputs", conclusion: "failure" }]), "unsafe");
+  assert.equal(detectSafeOutputState([{ name: "safe_outputs", conclusion: "success" }]), "unsafe");
+  assert.equal(detectSafeOutputState([]), "unsafe");
 });
 
 test("exercise start and every agentic stage require completed setup", () => {
@@ -328,8 +381,8 @@ test("evaluate-agentic-retry refuses cancellation, auth, policy, and scope class
   }
 });
 
-test("evaluate-agentic-retry refuses partial or applied safe-output states", () => {
-  for (const safeOutputState of ["partial", "applied"]) {
+test("evaluate-agentic-retry escalates unsafe, partial, or applied safe-output states", () => {
+  for (const safeOutputState of ["unsafe", "partial", "applied"]) {
     const result = runScript("evaluate-agentic-retry.mjs", [
       "--conclusion",
       "failure",
@@ -340,10 +393,10 @@ test("evaluate-agentic-retry refuses partial or applied safe-output states", () 
       "--safe-output-state",
       safeOutputState
     ]);
-    assert.equal(result.status, 10, `${safeOutputState}: ${result.stdout} ${result.stderr}`);
+    assert.equal(result.status, 11, `${safeOutputState}: ${result.stdout} ${result.stderr}`);
     const json = parseJson(result.stdout);
     assert.equal(json.authorizeRetry, false);
-    assert.equal(json.action, "refuse");
+    assert.equal(json.action, "escalate");
   }
 });
 

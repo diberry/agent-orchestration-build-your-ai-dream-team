@@ -21,7 +21,7 @@ network: {}
 tools:
   edit:
   bash:
-    - "node .github/scripts/validate-project-pulse.mjs"
+    - "node .github/scripts/validate-project-pulse.mjs --log .agentic-evidence/validation.log"
     - "node .github/scripts/smoke-test-project-pulse.mjs --log .agentic-evidence/http-smoke-test.log"
     - "node .github/scripts/collect-agentic-evidence.mjs --out .agentic-evidence --git-changed-files --allowed-files app/index.html,app/styles.css,app/project-data.json,.vscode/launch.json --stage 03-build --safe-output-file .agentic-evidence/validation.log --max-bytes 12000 --max-lines 300"
     - "git status --short"
@@ -69,7 +69,7 @@ Implement the exact Project Pulse and launch contracts in `.github/instructions/
 
 Before publishing:
 
-1. Run `node .github/scripts/validate-project-pulse.mjs` and save output to `.agentic-evidence/validation.log`.
+1. Run `node .github/scripts/validate-project-pulse.mjs --log .agentic-evidence/validation.log`.
 1. Run `node .github/scripts/smoke-test-project-pulse.mjs --log .agentic-evidence/http-smoke-test.log`. The bounded helper starts the preview server, requests `/index.html`, `/styles.css`, and `/project-data.json`, then stops the exact child process.
 1. Run `node .github/scripts/collect-agentic-evidence.mjs --out .agentic-evidence --git-changed-files --allowed-files app/index.html,app/styles.css,app/project-data.json,.vscode/launch.json --stage 03-build --safe-output-file .agentic-evidence/validation.log --max-bytes 12000 --max-lines 300`.
 1. Request one artifact named `project-pulse-stage-03-build-${{ github.run_id }}`.

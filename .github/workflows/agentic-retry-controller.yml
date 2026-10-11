@@ -46,13 +46,14 @@ jobs:
         id: safe_output
         shell: bash
         run: |
-          state=none
-          if find evidence -name safe-output-result.json -print -quit | grep -q .; then
-            if grep -RiqE '"(applied|partial|created)"[[:space:]]*:[[:space:]]*(true|"true")' evidence; then
-              state=unsafe
-            fi
+          state=unsafe
+          if gh run view "$RUN_ID" --json jobs > run-jobs.json; then
+            state="$(node .github/scripts/detect-agentic-safe-output-state.mjs --jobs run-jobs.json)"
           fi
           echo "state=$state" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
 
       - name: Classify failure evidence
         id: failure
@@ -130,13 +131,14 @@ jobs:
           - Attempt: $RUN_ATTEMPT
           - Failure classification: $CLASSIFICATION
           - Safe-output state: $SAFE_OUTPUT_STATE
+          - Decision: $DECISION_REASON
           - Evidence download: $EVIDENCE_OUTCOME
           - Observed scope evidence: \`$OBSERVED_SCOPE\`
           - Head SHA: \`$HEAD_SHA\`
           - Last successful checkpoint: the prior merged Project Pulse stage
           - Recommended next action: inspect the run and evidence, correct the trusted workflow or repository state, then explicitly resume the stage
 
-          Automation stopped after two total executions. Inspect both attempts and their artifacts, correct the workflow or repository state, remove \`agentic:needs-human\`, and explicitly invoke the stage command again.
+          $STOP_REASON Inspect the available attempts and artifacts, correct the workflow or repository state, remove \`agentic:needs-human\`, and explicitly invoke the stage command again.
           EOF
           gh issue edit "$ISSUE_NUMBER" --add-label agentic:needs-human
           gh issue comment "$ISSUE_NUMBER" --body-file escalation.md
@@ -148,6 +150,8 @@ jobs:
           RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           CLASSIFICATION: ${{ steps.failure.outputs.classification }}
           SAFE_OUTPUT_STATE: ${{ steps.safe_output.outputs.state }}
+          DECISION_REASON: ${{ steps.decision.outputs.reason }}
+          STOP_REASON: ${{ github.event.workflow_run.run_attempt >= 2 && 'Automation stopped after two total executions.' || 'Automation stopped without retry because safe-output processing may have applied an external write.' }}
           EVIDENCE_OUTCOME: ${{ steps.evidence.outcome }}
           OBSERVED_SCOPE: ${{ steps.failure.outputs.observed_scope }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}

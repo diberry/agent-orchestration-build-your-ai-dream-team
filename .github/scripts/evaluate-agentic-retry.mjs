@@ -81,10 +81,10 @@ function classify({ conclusion, failureClass, safeOutputState }) {
     return { category: "refuse", retryable: false, terminal: true, reason: `${normalizedClass} failures are not retryable` };
   }
   if (normalizedSafeOutput === "unsafe") {
-    return { category: "refuse", retryable: false, terminal: true, reason: "unsafe output is a policy failure" };
+    return { category: "escalate", retryable: false, terminal: true, reason: "safe-output processing may have applied an external write" };
   }
   if (normalizedSafeOutput === "partial" || normalizedSafeOutput === "applied") {
-    return { category: "refuse", retryable: false, terminal: true, reason: `safe output state ${normalizedSafeOutput} must not be retried` };
+    return { category: "escalate", retryable: false, terminal: true, reason: `safe output state ${normalizedSafeOutput} must not be retried` };
   }
   if (normalizedConclusion === "action_required" || normalizedConclusion === "startup_failure") {
     return { category: "refuse", retryable: false, terminal: true, reason: `${normalizedConclusion} requires human attention` };
@@ -121,6 +121,9 @@ function decisionFor({ conclusion, attempt, failureClass, safeOutputState }) {
 
   if (classification.category === "success") {
     return { ...base, action: "none", exitCode: EXIT.OK };
+  }
+  if (classification.category === "escalate") {
+    return { ...base, action: "escalate", exitCode: EXIT.RETRY_ESCALATE };
   }
   if (!classification.retryable) {
     return { ...base, action: "refuse", exitCode: EXIT.RETRY_DENIED };

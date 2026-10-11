@@ -156,6 +156,12 @@ function ruleTypes(ruleset) {
   return new Set((ruleset.rules || []).map((rule) => rule.type));
 }
 
+function sameStringSet(actual, expected) {
+  const actualValues = Array.isArray(actual) ? [...actual].sort() : [];
+  const expectedValues = [...expected].sort();
+  return JSON.stringify(actualValues) === JSON.stringify(expectedValues);
+}
+
 function evaluateSetupState(state, options = {}) {
   const failures = [];
   const secretNames = new Set((state.secrets || []).map((secret) => secret.name));
@@ -178,10 +184,37 @@ function evaluateSetupState(state, options = {}) {
   if (!state.ruleset || state.ruleset.enforcement !== "active") {
     failures.push(`Active ruleset "${RULESET_NAME}" is missing.`);
   } else {
+    const expected = buildRulesetPayload();
+    if ((state.ruleset.bypass_actors || []).length !== 0) {
+      failures.push("Ruleset must not define bypass actors.");
+    }
+    const refCondition = state.ruleset.conditions?.ref_name;
+    if (
+      !sameStringSet(refCondition?.include, expected.conditions.ref_name.include) ||
+      !sameStringSet(refCondition?.exclude, expected.conditions.ref_name.exclude)
+    ) {
+      failures.push("Ruleset must target only the default branch.");
+    }
     const types = ruleTypes(state.ruleset);
     for (const requiredType of ["pull_request", "required_status_checks", "deletion", "non_fast_forward"]) {
       if (!types.has(requiredType)) {
         failures.push(`Ruleset is missing ${requiredType}.`);
+      }
+    }
+    const pullRequestRule = (state.ruleset.rules || []).find((rule) => rule.type === "pull_request");
+    const expectedPullRequestRule = expected.rules.find((rule) => rule.type === "pull_request");
+    if (pullRequestRule) {
+      const actual = pullRequestRule.parameters || {};
+      const required = expectedPullRequestRule.parameters;
+      if (
+        !sameStringSet(actual.allowed_merge_methods, required.allowed_merge_methods) ||
+        actual.dismiss_stale_reviews_on_push !== required.dismiss_stale_reviews_on_push ||
+        actual.require_code_owner_review !== required.require_code_owner_review ||
+        actual.require_last_push_approval !== required.require_last_push_approval ||
+        actual.required_approving_review_count !== required.required_approving_review_count ||
+        actual.required_review_thread_resolution !== required.required_review_thread_resolution
+      ) {
+        failures.push("Ruleset pull-request review safeguards do not match the required configuration.");
       }
     }
     const statusRule = (state.ruleset.rules || []).find((rule) => rule.type === "required_status_checks");
@@ -192,6 +225,12 @@ function evaluateSetupState(state, options = {}) {
       if (!contexts.has(context)) {
         failures.push(`Ruleset does not require ${context}.`);
       }
+    }
+    if (statusRule && (
+      statusRule.parameters?.strict_required_status_checks_policy !== true ||
+      statusRule.parameters?.do_not_enforce_on_create !== true
+    )) {
+      failures.push("Ruleset status checks must be strict and allow initial branch creation.");
     }
   }
 

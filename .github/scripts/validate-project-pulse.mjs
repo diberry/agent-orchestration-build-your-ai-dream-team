@@ -1,12 +1,13 @@
 #!/usr/bin/env node
+import { writeFileSync } from "node:fs";
 import path from "node:path";
-import { createReporter, EXIT, fileExists, parseFlags, readJson, readText } from "./lib/common.mjs";
+import { createReporter, ensureDir, EXIT, fileExists, parseFlags, readJson, readText } from "./lib/common.mjs";
 
 const REQUIRED_PROJECT_FIELDS = ["name", "owner", "status", "recentActivity", "priority"];
 
 function usage() {
   return [
-    "Usage: node .github/scripts/validate-project-pulse.mjs [--root PATH] [--json]",
+    "Usage: node .github/scripts/validate-project-pulse.mjs [--root PATH] [--log PATH] [--json]",
     "",
     "Validates the Project Pulse static app contract:",
     "  app/index.html, app/styles.css, app/project-data.json, and .vscode/launch.json.",
@@ -215,7 +216,7 @@ function validateLaunch(root, reporter) {
 function main() {
   let flags;
   try {
-    flags = parseFlags(process.argv.slice(2), { boolean: ["json", "help"], value: ["root"] });
+    flags = parseFlags(process.argv.slice(2), { boolean: ["json", "help"], value: ["root", "log"] });
   } catch (error) {
     console.error(error.message);
     console.error(usage());
@@ -233,7 +234,19 @@ function main() {
   validateData(root, reporter);
   validateLaunch(root, reporter);
   const result = reporter.result({ root });
-  reporter.print(result, "Project Pulse validation");
+  const output = flags.json
+    ? JSON.stringify(result, null, 2)
+    : [
+        `Project Pulse validation: ${result.ok ? "passed" : "failed"}`,
+        ...result.checks.map((check) => `${check.ok ? "✓" : "✗"} ${check.id}: ${check.message}`),
+        ...(result.ok ? [] : [`${result.failures} check${result.failures === 1 ? "" : "s"} failed.`])
+      ].join("\n");
+  console.log(output);
+  if (flags.log) {
+    const logPath = path.resolve(flags.log);
+    ensureDir(path.dirname(logPath));
+    writeFileSync(logPath, `${output}\n`, "utf8");
+  }
   process.exit(result.ok ? EXIT.OK : EXIT.VALIDATION_FAILED);
 }
 

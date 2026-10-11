@@ -40,10 +40,10 @@ Configure it as follows:
 - **Expiration:** use the shortest practical duration for the exercise and rotate or revoke it when the exercise ends.
 - **License:** the PAT owner must have active Copilot inference access.
 
-Store the token as an Actions repository secret named exactly `COPILOT_GITHUB_TOKEN`:
+The setup script stores the token as an Actions repository secret named exactly `COPILOT_GITHUB_TOKEN`. It invokes GitHub CLI's encrypted prompt so the token is not placed in a command argument:
 
 ```shell
-gh aw secrets set COPILOT_GITHUB_TOKEN --value "<fine-grained-pat>"
+node .github/scripts/setup-agentic-workflows.mjs --configure
 ```
 
 The token must never be committed, written to an artifact, echoed to a log, placed in workflow Markdown, or exposed to agent shell commands.
@@ -68,11 +68,7 @@ Create a second fine-grained PAT with:
 - **No additional permissions:** it does not need Issues, Pull requests, Actions, Administration, or Copilot Requests access.
 - **Expiration:** the shortest practical duration for the exercise.
 
-Store it as the Actions repository secret `GH_AW_CI_TRIGGER_TOKEN`:
-
-```shell
-gh aw secrets set GH_AW_CI_TRIGGER_TOKEN --value "<fine-grained-pat>"
-```
+The same setup command prompts for this token and stores it as the Actions repository secret `GH_AW_CI_TRIGGER_TOKEN` when the secret is missing.
 
 GitHub Agentic Workflows recognizes this secret name. After the safe-output job creates the PR branch, it uses this PAT only to push an extra empty commit. That commit runs under the PAT owner's identity and triggers normal CI events.
 
@@ -148,15 +144,14 @@ The conventional retry controller is different: because it is not an agentic job
 
 Before enabling Stage 1:
 
-1. Confirm the `COPILOT_GITHUB_TOKEN` repository secret exists without printing its value.
-2. Confirm the `GH_AW_CI_TRIGGER_TOKEN` repository secret exists without printing its value.
-3. Run a minimal `gh aw trial` that performs a read-only Copilot request.
-4. Confirm the run does not request `copilot-requests: write`.
-5. Inspect the generated `.lock.yml` and confirm the agent job is read-only and write permissions exist only on safe-output jobs.
-6. Confirm logs and artifacts redact both secrets and contain no token prefix or authorization header.
-7. Confirm safe outputs use `GITHUB_TOKEN`, not `COPILOT_GITHUB_TOKEN`.
-8. Create a test draft PR and confirm its extra empty commit is authored by the CI-trigger PAT owner and starts `project-pulse-contract.yml`.
-9. Record only each secret name, PAT expiration date, and successful preflight date in operator documentation. Never record token values.
+1. Run `node .github/scripts/setup-agentic-workflows.mjs --check`. This confirms both secret names and repository controls without printing secret values and runs `gh aw doctor`.
+2. Run a minimal `gh aw trial` that performs a read-only Copilot request.
+3. Confirm the run does not request `copilot-requests: write`.
+4. Inspect the generated `.lock.yml` and confirm the agent job is read-only and write permissions exist only on safe-output jobs.
+5. Confirm logs and artifacts redact both secrets and contain no token prefix or authorization header.
+6. Confirm safe outputs use `GITHUB_TOKEN`, not `COPILOT_GITHUB_TOKEN`.
+7. Create a test draft PR and confirm its extra empty commit is authored by the CI-trigger PAT owner and starts `project-pulse-contract.yml`.
+8. Record only each secret name, PAT expiration date, and successful preflight date in operator documentation. Never record token values.
 
 ## Recommended architecture
 
@@ -598,44 +593,28 @@ Retain `.github/workflows/4-step.yml` as the final post-merge grader and complet
 
 ## Workflow compilation and repository setup
 
-1. Install the extension:
+1. Run the automated repository setup after creating the two required fine-grained PATs:
 
    ```shell
-   gh extension install github/gh-aw
+   node .github/scripts/setup-agentic-workflows.mjs --configure
    ```
 
-2. Initialize agentic workflow authoring:
+2. Add the editable `.md` workflows.
+3. Compile all workflows:
 
    ```shell
-   gh aw init
+   gh aw compile --strict --validate --no-check-update
    ```
 
-3. Add the editable `.md` workflows.
-4. Compile all workflows:
-
-   ```shell
-   gh aw compile
-   ```
-
-5. Commit every workflow source file and its generated `.lock.yml`.
-6. Run `.github/scripts/validate-agentic-workflow.mjs` against every workflow source and lock pair.
-7. Configure `.github/workflows/agentic-observability.yml`, artifact retention, and sanitized run manifests.
-8. Configure `.github/workflows/agentic-retry-controller.yml` for two total attempts and human escalation.
-9. Create the personal-account inference credential:
-   - Create a fine-grained PAT owned by the personal account.
-   - Grant only **Account permissions → Copilot Requests: Read**.
-   - Store it as the Actions repository secret `COPILOT_GITHUB_TOKEN`.
-   - Do not grant `copilot-requests: write` in workflow frontmatter.
-10. Create the CI-trigger credential:
-   - Create a second fine-grained PAT scoped only to this repository.
-   - Grant only **Contents: Read and write**.
-   - Store it as the Actions repository secret `GH_AW_CI_TRIGGER_TOKEN`.
-   - Use it only as `github-token-for-extra-empty-commit`.
-11. Compile the workflows and inspect job-level permissions in every `.lock.yml`.
-12. Run each workflow first with `gh aw trial`, then use the real slash command after reviewing its planned permissions, tools, network access, cost ceiling, safe outputs, logs, and artifacts.
-13. Confirm an agent-created test PR triggers contract CI through the extra empty commit.
-14. Force two controlled failures in a disposable branch to verify one retry, no third execution, and complete human-escalation evidence.
-15. Inspect trial evidence with `gh aw logs`, `gh aw audit RUN-ID`, the Actions summary, and the uploaded artifact before enabling the slash command for learners.
+4. Commit every workflow source file and its generated `.lock.yml`.
+5. Run `.github/scripts/validate-agentic-workflow.mjs` against every workflow source and lock pair.
+6. Configure `.github/workflows/agentic-observability.yml`, artifact retention, and sanitized run manifests.
+7. Configure `.github/workflows/agentic-retry-controller.yml` for two total attempts and human escalation.
+8. Compile the workflows and inspect job-level permissions in every `.lock.yml`.
+9. Run each workflow first with `gh aw trial`, then use the real slash command after reviewing its planned permissions, tools, network access, cost ceiling, safe outputs, logs, and artifacts.
+10. Confirm an agent-created test PR triggers contract CI through the extra empty commit.
+11. Force two controlled failures in a disposable branch to verify one retry, no third execution, and complete human-escalation evidence.
+12. Inspect trial evidence with `gh aw logs`, `gh aw audit RUN-ID`, the Actions summary, and the uploaded artifact before enabling the slash command for learners.
 
 ## Lesson-content migration
 
@@ -739,17 +718,15 @@ Implementation proceeded with the recommended defaults. Any deviation should be 
    - Decide whether validation scripts use only the Node.js standard library or require a pinned dependency manifest.
 
 8. **Configure repository settings**
-   - Enable GitHub Actions.
+   - Create the two least-privilege fine-grained PATs.
+   - Run `node .github/scripts/setup-agentic-workflows.mjs --configure`.
    - Verify repository or account policy permits workflow-requested write scopes.
-   - Enable GitHub Actions to create pull requests when using safe outputs with `GITHUB_TOKEN`.
-   - Create `COPILOT_GITHUB_TOKEN` and `GH_AW_CI_TRIGGER_TOKEN`.
-   - Create the `agentic:needs-human` label.
    - Add CODEOWNERS coverage for workflow sources, lock files, policy scripts, and shared instructions.
-   - Add a branch ruleset requiring:
+   - Confirm the script-created branch ruleset requires:
      - Pull requests before merge.
      - CODEOWNER review.
      - `Agentic workflow policy`.
-     - `Project Pulse contract` where applicable.
+     - `Project Pulse contract`.
      - Up-to-date branches if required by the exercise.
    - Prevent workflows from approving or merging their own pull requests.
 
