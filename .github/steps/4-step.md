@@ -1,90 +1,64 @@
 ## Step 4: Validate and hand off the dashboard
 
-You built Project Pulse. Now finish the orchestration loop. :rocket:
+You built Project Pulse. Now complete the orchestration loop. :rocket:
 
-### What should the Orchestrator report?
+The Orchestrator will review the approved outputs from Planner, Designer, and Coder, rerun deterministic validation, and propose a final handoff. It reports what actually happened; it must not claim work that has no merged artifact or passing evidence.
 
-The Orchestrator is responsible for more than dispatching work. It should explain:
+### :keyboard: Activity: Validate and create the handoff
 
-- Which agents participated.
-- How the plan was used.
-- What Designer contributed.
-- What Coder implemented.
-- What validation was completed.
-- What the final result is.
+1. Confirm that the build pull request is merged and the **Project Pulse contract** check passed.
 
-### :keyboard: Activity: Validate and summarize
+1. In a new comment on this exercise issue, enter:
 
-1. Return to your Codespace terminal.
-
-2. Start Copilot CLI if needed:
-
-> [!NOTE]
-> If you are not already in the Copilot CLI interactive mode, run this command.
-
-   ```bash
-   copilot --allow-all --enable-all-github-mcp-tools
+   ```text
+   /pulse-handoff
    ```
 
-3. In Copilot CLI, run `/agent`, select **Orchestrator**, then paste this prompt:
+1. Wait for the workflow triggered by `/pulse-handoff` to start, then open its Actions run.
 
-   > ![Static Badge](https://img.shields.io/badge/-Prompt-text?style=social&logo=github%20copilot)
-   >
-   > ```prompt
-   > Review docs/agent-team.md, docs/project-pulse-plan.md, the files in app/,
-   > and .vscode/launch.json.
-   >
-   > Validate the Project Pulse dashboard.
-   >
-   > Write a final handoff in docs/final-handoff.md.
-   >
-   > Include these exact agent names: Orchestrator, Planner, Designer, and Coder.
-   >
-   > Include these exact file paths: app/index.html, app/styles.css,
-   > and app/project-data.json.
-   >
-   > Include the exact launch name "Run Project Pulse Dashboard".
-   >
-   > Include the exact launch file path .vscode/launch.json.
-   >
-   > Include a section heading that contains the lowercase word "validation".
-   >
-   > Include a section heading that contains the lowercase word "handoff".
-   > ```
+1. Review the run summary and evidence. Confirm that:
 
-4. Review `docs/final-handoff.md`.
+   - The workflow acted as Orchestrator.
+   - It read `docs/agent-team.md`, `docs/project-pulse-plan.md`, `docs/project-pulse-design.md`, the app files, and `.vscode/launch.json`.
+   - It found a successful **Project Pulse contract** result.
+   - It reran deterministic validation instead of relying only on earlier claims.
+   - Its proposed file scope contains only `docs/final-handoff.md`.
+   - Validation and safe-output reporting completed successfully.
 
-5. Make sure the handoff includes:
+1. Open the draft pull request titled **Validate and hand off Project Pulse**.
 
-   - Orchestrator, Planner, Designer, and Coder.
-   - The final Project Pulse result.
-   - The app files that were created.
-   - The launch file `.vscode/launch.json`.
-   - The launch configuration **Run Project Pulse Dashboard**.
-   - A section heading that contains the lowercase word `validation`.
-   - A section heading that contains the lowercase word `handoff`.
-   - Any next steps or limitations.
+1. Review `docs/final-handoff.md`. Make sure it includes:
 
-6. Ask Copilot CLI to stage, commit, and push your work. Copy and paste this prompt into the Copilot CLI interactive mode:
+   - The exact agent names Orchestrator, Planner, Designer, and Coder.
+   - The contribution made by each role.
+   - The approved plan and Designer contract used by Coder.
+   - The exact paths `app/index.html`, `app/styles.css`, and `app/project-data.json`.
+   - The exact launch path `.vscode/launch.json`.
+   - The exact launch name **Run Project Pulse Dashboard**.
+   - A heading containing the lowercase word `validation`.
+   - A heading containing the lowercase word `handoff`.
+   - The checks that ran and their actual outcomes.
+   - Current limitations, risks, and next steps.
 
-   > ![Static Badge](https://img.shields.io/badge/-Prompt-text?style=social&logo=github%20copilot)
-   >
-   > ```prompt
-   > Stage docs/final-handoff.md.
-   >
-   > Commit it with the message "Validate and hand off Project Pulse".
-   >
-   > Push the commit.
-   > ```
+1. Compare the handoff claims with the merged files and run evidence. Do not accept claims about agents, validation, or features that are not supported by those sources.
 
-7. Mona will check your work and complete the exercise.
+1. Review the **Files changed** tab and checks:
+
+   - Only `docs/final-handoff.md` should change.
+   - The workflow must not repair app files, revise the plan or design, or modify workflow infrastructure during this stage.
+   - Confirm all required checks pass.
+
+1. When the handoff is accurate, mark the pull request ready if needed, complete the required human review, and merge it.
+
+1. Return to this issue. The Step 4 grader will validate the merged handoff and complete the exercise.
 
 <details>
 <summary>Having trouble? 🤷</summary><br/>
 
-- Make sure you created `docs/final-handoff.md`.
-- Include all four agent names.
-- Include `Project Pulse`, `validation`, the app file names, and `.vscode/launch.json`.
-- Make sure you pushed your commit.
+- Post `/pulse-handoff` only after the build PR is merged and contract CI passes.
+- If validation fails, the workflow should post a blocker and must not publish a success-shaped handoff.
+- If the handoff PR changes anything except `docs/final-handoff.md`, do not merge it.
+- If a second attempt fails, follow the `agentic:needs-human` escalation comment and evidence links.
+- If the exercise does not complete, confirm the handoff PR was merged into the default branch and the Step 4 grader passed.
 
 </details>

@@ -1,0 +1,68 @@
+name: Agentic workflow observability
+
+on:
+  workflow_run:
+    workflows:
+      - Project Pulse 01 - Document team
+      - Project Pulse 02 - Plan dashboard
+      - Project Pulse 03A - Design dashboard
+      - Project Pulse 03B - Build dashboard
+      - Project Pulse 04 - Validate and hand off
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  summarize:
+    name: Publish sanitized run summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download stage evidence
+        id: download
+        continue-on-error: true
+        run: |
+          mkdir -p evidence
+          gh run download "$RUN_ID" --dir evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+
+      - name: Write Actions summary
+        run: |
+          {
+            echo "# Project Pulse agentic run"
+            echo
+            echo "- Workflow: $WORKFLOW_NAME"
+            echo "- Run: [$RUN_ID]($RUN_URL)"
+            echo "- Attempt: $RUN_ATTEMPT"
+            echo "- Conclusion: $CONCLUSION"
+            echo "- Actor: $ACTOR"
+            echo "- Head SHA: \`$HEAD_SHA\`"
+            echo "- Evidence downloaded: $DOWNLOAD_OUTCOME"
+            echo
+            echo "Use \`gh aw logs --run-id $RUN_ID\` and \`gh aw audit $RUN_ID\` for detailed review."
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          ACTOR: ${{ github.event.workflow_run.actor.login }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
+
+      - name: Upload observability bundle
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: project-pulse-observability-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: evidence/

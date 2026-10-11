@@ -2,90 +2,77 @@
 
 Welcome to **Agent Orchestration: Build Your AI Dream Team**! :robot:
 
-Mona's team needs a small **Project Pulse** dashboard. You will use GitHub Copilot CLI to coordinate a prebuilt team of custom agents that can plan, design, code, and validate the dashboard.
+Mona's team needs a small **Project Pulse** dashboard. You will build it with GitHub Agentic Workflows that run in GitHub Actions.
 
-### What is the goal?
+### How will the exercise work?
 
-The goal is not to write every file with one prompt. The goal is to practice orchestration:
+The exercise issue is your control plane. At each stage, you will:
 
-- The **Orchestrator** coordinates the request.
-- The **Planner** creates implementation phases and file ownership.
-- The **Designer** guides the dashboard experience.
-- The **Coder** implements the static app files.
+1. Post a slash command on this issue.
+1. Follow the GitHub Actions run.
+1. Review the draft pull request and its validation evidence.
+1. Approve and merge the work before starting the next stage.
 
-The custom agent definitions are already available in `.github/agents/`. Your first task is to inspect that team and document how you will use it.
+Each workflow acts in a specific role:
 
-### :keyboard: Activity: Open the Codespace and start Copilot CLI
+- **Orchestrator** coordinates the overall sequence and handoffs.
+- **Planner** defines phases, dependencies, and file ownership.
+- **Designer** creates an explicit visual and accessibility contract.
+- **Coder** implements that approved contract.
 
-1. Right-click the button below to open the **Create Codespace** page in a new tab.
+The agent job receives read-only repository access. It proposes changes through a controlled safe output, which creates a draft pull request outside the agent runtime. You remain responsible for reviewing and merging every change.
 
-   [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/{{full_repo_name}}?quickstart=1)
+### :keyboard: Activity: Document the agent team
 
-2. Confirm the **Repository** field is your copy of the exercise, then select **Create Codespace**.
+1. In a new comment on this exercise issue, enter:
 
-   - ✅ Your copy: `/{{full_repo_name}}`
-   - ❌ Original: `/skills/agent-orchestration-build-your-ai-dream-team`
-
-3. Wait for the Codespace to finish loading.
-
-4. The Codespace opens a terminal in the editor area and starts GitHub Copilot CLI with broad exercise permissions.
-
-> [!NOTE]
-> If you are not already in the Copilot CLI interactive mode, run this command.
-
-   ```bash
-   copilot --allow-all --enable-all-github-mcp-tools
+   ```text
+   /pulse-team
    ```
 
-5. If prompted, use `/login` to authenticate.
+1. Wait for the workflow triggered by `/pulse-team` to start.
 
-> [!NOTE]
-> Copy and paste should work in the Codespace terminal with standard browser shortcuts. You can also select text to copy it automatically, then right-click in the terminal to paste. If multiline input is awkward, run `/terminal-setup` inside Copilot CLI.
+1. Open the workflow run from the link posted on this issue, or select the **Actions** tab and open the newest run.
 
-### :keyboard: Activity: Inspect the custom agents
+1. Review the run summary. Confirm that:
 
-1. Ask Copilot CLI to inspect the agent definitions:
+   - The workflow acted as the Orchestrator.
+   - It read the four definitions in `.github/agents/`.
+   - Its proposed file scope contains only `docs/agent-team.md`.
+   - Validation completed successfully.
+   - The run requested one draft pull request and one issue comment through safe outputs.
 
-   > ![Static Badge](https://img.shields.io/badge/-Prompt-text?style=social&logo=github%20copilot)
-   >
-   > ```prompt
-   > Inspect .github/agents/ and summarize the custom agent team I will use to build
-   > Mona's Project Pulse dashboard.
-   >
-   > Update the replace text in `docs/agent-team.md`.
-   > ```
+1. Open the draft pull request titled **Document the Project Pulse agent team**.
 
-1. Update `docs/agent-team.md` with:
+1. Review `docs/agent-team.md`. Make sure it:
 
-   - Orchestrator, Planner, Coder, and Designer.
-   - The model assigned to each agent.
-   - The responsibility of each agent.
-   - The `.github/agents/` file for each agent.
-   - How the team will work together to build Project Pulse.
+   - Includes Orchestrator, Planner, Designer, and Coder.
+   - Uses the model names found in the current agent frontmatter.
+   - Explains each agent's responsibility.
+   - References each source file in `.github/agents/`.
+   - Explains how the roles work together on Project Pulse.
+   - Does not claim that Planner, Designer, or Coder ran during this stage. The Orchestrator inspected their definitions.
 
-1. Save the file.
+1. Review the pull request's **Files changed** tab and checks:
 
-1. Ask Copilot CLI to stage, commit, and push your work. Copy and paste this prompt into the Copilot CLI interactive mode:
+   - Only `docs/agent-team.md` should change.
+   - Do not accept changes to agent definitions, workflows, graders, or unrelated files.
+   - Confirm all required checks pass.
 
-   > ![Static Badge](https://img.shields.io/badge/-Prompt-text?style=social&logo=github%20copilot)
-   >
-   > ```prompt
-   > Stage docs/agent-team.md.
-   >
-   > Commit it with the message "Document the Project Pulse agent team".
-   >
-   > Push the commit.
-   > ```
+1. When the pull request is correct, mark it ready for review if needed, complete the required human review, and merge it.
 
-1. Mona will check your work and post the next lesson.
+1. Return to this issue. The Step 1 grader will check the merged file and post the next lesson.
+
+> [!IMPORTANT]
+> Do not post `/pulse-plan` until the team pull request is merged. Each stage reads the approved output from the previous stage on the default branch.
 
 <details>
 <summary>Having trouble? 🤷</summary><br/>
 
-- Make sure you updated `docs/agent-team.md`.
-- Make sure the file references `.github/agents/`.
-- Make sure the file includes all four agent names.
-- Make sure the file uses the updated models: Opus 4.7, GPT-5.5, and Gemini 3.1 Pro.
-- Make sure you pushed your commit.
+- If no run starts, confirm that you posted `/pulse-team` as a standalone issue comment and that you have write access to the repository.
+- If the run fails once, the retry controller may rerun it one time.
+- If a second attempt fails, look for the `agentic:needs-human` label and the evidence links in the escalation comment. A maintainer must resolve the blocker before the stage is invoked again.
+- If the pull request changes more than `docs/agent-team.md`, do not merge it.
+- If the lesson does not advance, confirm the pull request was merged into the default branch and the Step 1 grader passed.
 
 </details>

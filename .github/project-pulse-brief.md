@@ -37,4 +37,4 @@ Use the custom agents in `.github/agents/`:
 - The Designer guides layout, information hierarchy, accessibility, and visual design.
 - The Coder implements the static dashboard files.
 
-The learner should use GitHub Copilot CLI to practice the orchestration flow instead of doing all work as a single undifferentiated prompt.
+The learner uses issue-driven GitHub Agentic Workflows. Each role produces a reviewable artifact in a draft pull request, and a human merges that output before it becomes the next role's input.

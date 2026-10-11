@@ -3,18 +3,12 @@ set -euo pipefail
 
 cat <<'MESSAGE'
 
-Welcome back to Agent Orchestration: Build Your AI Dream Team.
+Welcome to Agent Orchestration: Build Your AI Dream Team.
 
-Your Codespace is ready. This terminal opens in the editor area so the
-GitHub Copilot CLI stays front and center.
+Use the canonical exercise issue to invoke each GitHub Agentic Workflow.
+Follow its current lesson, review the generated draft pull request, and merge
+approved work before invoking the next stage.
 
-Starting the CLI with broad exercise permissions:
-
-  copilot --allow-all --enable-all-github-mcp-tools
-
-If prompted, use /login inside Copilot CLI. Then follow Mona's current
-step instructions in the exercise issue.
+This Codespace is available for the Project Pulse dashboard preview in Step 3.
 
 MESSAGE
-
-exec copilot --allow-all --enable-all-github-mcp-tools

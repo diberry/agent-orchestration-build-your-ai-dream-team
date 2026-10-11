@@ -22,7 +22,7 @@ jobs:
     uses: skills/exercise-toolkit/.github/workflows/start-exercise.yml@v0.9.3
     with:
       exercise-title: "Agent Orchestration Build Your AI Dream Team"
-      intro-message: "Practice coordinating specialist agents from a Codespace terminal with GitHub Copilot CLI"
+      intro-message: "Practice coordinating specialist roles with issue-driven GitHub Agentic Workflows"
 
   post_next_step_content:
     name: Post next step content

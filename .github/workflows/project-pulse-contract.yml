@@ -1,0 +1,98 @@
+name: Project Pulse contract
+
+on:
+  pull_request:
+    paths:
+      - app/**
+      - .vscode/launch.json
+      - .github/scripts/validate-project-pulse.mjs
+  push:
+    branches:
+      - main
+    paths:
+      - app/**
+      - .vscode/launch.json
+      - .github/scripts/validate-project-pulse.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Project Pulse contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Detect learner placeholder
+        id: baseline
+        shell: bash
+        run: |
+          initial_migration=false
+          if [ "$EVENT_NAME" = "pull_request" ] &&
+             ! git cat-file -e "origin/$BASE_REF:.github/workflows/project-pulse-contract.yml" 2>/dev/null; then
+            initial_migration=true
+          fi
+          if [ "$initial_migration" = "true" ] ||
+             { [ "$EVENT_NAME" = "push" ] && grep -q "Dashboard placeholder" app/index.html; }; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "The checked-in learner baseline is not a build artifact." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+
+      - name: Set up Node.js
+        if: steps.baseline.outputs.ready == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Validate Project Pulse
+        if: steps.baseline.outputs.ready == 'true'
+        run: node .github/scripts/validate-project-pulse.mjs 2>&1 | tee validation.log
+
+      - name: Start preview server
+        if: steps.baseline.outputs.ready == 'true'
+        working-directory: app
+        run: |
+          python3 -m http.server 5500 >../http-server.log 2>&1 &
+          echo $! > ../http-server.pid
+
+      - name: Smoke test dashboard assets
+        if: steps.baseline.outputs.ready == 'true'
+        run: |
+          for attempt in {1..10}; do
+            if curl --fail --silent http://localhost:5500/index.html >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent --show-error http://localhost:5500/index.html >/dev/null
+          curl --fail --silent --show-error http://localhost:5500/styles.css >/dev/null
+          curl --fail --silent --show-error http://localhost:5500/project-data.json >/dev/null
+
+      - name: Stop preview server
+        if: always() && steps.baseline.outputs.ready == 'true'
+        run: |
+          if [ -f http-server.pid ]; then
+            kill "$(cat http-server.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload contract evidence
+        if: always() && steps.baseline.outputs.ready == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: project-pulse-contract-${{ github.run_id }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            validation.log
+            http-server.log

@@ -1,6 +1,6 @@
 ---
 name: Orchestrator
-description: Coordinates Planner, Coder, and Designer agents from the GitHub Copilot CLI.
+description: Coordinates Planner, Coder, and Designer roles across GitHub Agentic Workflow stages.
 model: Claude Opus 4.8 (copilot)
 tools: ['read', 'agent', 'memory']
 ---
@@ -33,6 +33,6 @@ These are the specialist agents you can call:
 - Summarize progress after each phase.
 - Surface blockers instead of hiding them.
 
-## Git control
+## Publication control
 
-- Do not stage, commit, or push changes. The learner controls all git operations through Copilot CLI prompts.
+- Do not publish, approve, or merge changes directly. The active workflow's safe outputs create a draft pull request for human review.

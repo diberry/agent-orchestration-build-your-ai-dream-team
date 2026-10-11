@@ -1,135 +1,121 @@
-## Step 3: Build the Project Pulse dashboard
+## Step 3: Design and build the Project Pulse dashboard
 
-Nice! You have a plan. :tada:
+Nice! You have an approved plan. :tada:
 
-Now you will use the Orchestrator to delegate design and coding work so Project Pulse becomes a real static dashboard with a polished frontend.
+This stage uses two workflows and two human-reviewed pull requests:
 
-### What should the dashboard include?
+1. Designer produces a durable design contract.
+1. Coder implements that contract.
 
-The dashboard should help contributors quickly understand Mona's team projects. It should include:
+This separation makes the handoff auditable. The Coder cannot silently invent or replace Designer decisions, and the exercise can verify that real orchestration occurred.
 
-- A clear Project Pulse title.
-- Cards or sections for multiple projects.
-- Project name, owner, status, recent activity, and priority or risk information.
-- A polished card-based UI with status badges and clear visual hierarchy.
-- Accessible markup and readable styling.
-- Data in `app/project-data.json`.
-- A running preview from a **Run Project Pulse Dashboard** launch configuration.
+### Activity 1: Create the Designer contract
 
-### :keyboard: Activity: Delegate design and coding work
+1. In a new comment on this exercise issue, enter:
 
-1. Return to your Codespace terminal.
-
-2. Start Copilot CLI if needed:
-
-> [!NOTE]
-> If you are not already in the Copilot CLI interactive mode, run this command.
-
-   ```bash
-   copilot --allow-all --enable-all-github-mcp-tools
+   ```text
+   /pulse-design
    ```
 
-3. In Copilot CLI, run `/agent`, select **Orchestrator**, then paste this prompt:
+1. Wait for the workflow triggered by `/pulse-design` to start, then open its Actions run.
 
-   > ![Static Badge](https://img.shields.io/badge/-Prompt-text?style=social&logo=github%20copilot)
-   >
-   > ```prompt
-   > Use the plan in docs/project-pulse-plan.md.
-   >
-   > Delegate visual and accessibility decisions to Designer.
-   >
-   > Have Designer create a polished frontend dashboard, not a plain page.
-   >
-   > Delegate implementation to Coder.
-   >
-   > Build the Project Pulse dashboard in app/index.html, app/styles.css,
-   > and app/project-data.json.
-   >
-   > In app/index.html, use the exact title "Project Pulse".
-   >
-   > In app/index.html, reference styles.css and project-data.json.
-   >
-   > In app/index.html, render visible project cards from the projects data.
-   >
-   > Use the class name project-card for each project card.
-   >
-   > Show each project's status, recentActivity, and priority in the UI.
-   >
-   > In app/styles.css, include a .dashboard selector.
-   >
-   > In app/styles.css, include a .project-card selector.
-   >
-   > Make the UI polished with border-radius, box-shadow, and responsive layout.
-   >
-   > In app/project-data.json, use a top-level "projects" key.
-   >
-   > For each project, include name, owner, status, recentActivity, and priority.
-   >
-   > Create .vscode/launch.json as strict JSON with no comments.
-   >
-   > Add a launch configuration named "Run Project Pulse Dashboard".
-   >
-   > In launch.json, configure the launch to serve from the app directory.
-   >
-   > Use this command: python3 -m http.server 5500.
-   >
-   > Add serverReadyAction so it opens
-   > http://localhost:%s/index.html.
-   >
-   > Make the launch configuration open the dashboard frontend,
-   > not a directory listing.
-   > ```
+1. Review the run summary and evidence. Confirm that:
 
-4. Review the generated files.
+   - The workflow acted as Designer.
+   - It read the approved plan as a read-only input.
+   - Its proposed file scope contains only `docs/project-pulse-design.md`.
+   - It did not implement HTML, CSS, JSON, or launch configuration.
 
-5. Make sure:
+1. Open the draft pull request for the Project Pulse design contract.
 
-   - `app/index.html` includes `Project Pulse`.
-   - `app/index.html` links to `styles.css`.
-   - `app/index.html` loads or references `project-data.json`.
-   - `app/index.html` renders project cards with the `project-card` class.
-   - `app/index.html` shows `status`, `recentActivity`, and `priority` values.
-   - `app/styles.css` includes a `.dashboard` selector.
-   - `app/styles.css` includes `.project-card`, `border-radius`, and `box-shadow`.
-   - `app/project-data.json` parses as JSON and includes a top-level `projects` key.
-   - Each project includes `name`, `owner`, `status`, `recentActivity`, and `priority`.
-   - `.vscode/launch.json` exists and includes **Run Project Pulse Dashboard**.
-   - `.vscode/launch.json` serves from `app/` and opens `index.html`.
-   - `.vscode/launch.json` opens `http://localhost:%s/index.html`.
+1. Review `docs/project-pulse-design.md`. Make sure it defines:
 
-6. Run the dashboard:
+   - Information hierarchy and project-card content.
+   - `.dashboard` and `.project-card` class hooks.
+   - Status and priority treatments.
+   - Responsive behavior.
+   - Keyboard focus and readable contrast expectations.
+   - Reduced-motion guidance.
+   - Loading, empty, and error states.
+   - Accessibility and design validation notes.
 
-   - Open **Run and Debug** in the left activity bar.
-   - Select **Run Project Pulse Dashboard**.
-   - Press the green play button.
-   - Confirm the browser opens `app/index.html` and shows the Project Pulse dashboard.
-   - Stop the preview server before continuing.
+1. Review the **Files changed** tab and checks:
 
-7. Ask Copilot CLI to stage, commit, and push your work. Copy and paste this prompt into the Copilot CLI interactive mode:
+   - Only `docs/project-pulse-design.md` should change.
+   - No app or launch files should be present.
+   - Confirm all required checks pass.
 
-   > ![Static Badge](https://img.shields.io/badge/-Prompt-text?style=social&logo=github%20copilot)
-   >
-   > ```prompt
-   > Stage app/index.html, app/styles.css, app/project-data.json,
-   > and .vscode/launch.json.
-   >
-   > Commit them with the message "Build the Project Pulse dashboard".
-   >
-   > Push the commit.
-   > ```
+1. When the contract is correct, mark the pull request ready if needed, complete the required human review, and merge it.
 
-8. Mona will check your work and post the next lesson.
+> [!IMPORTANT]
+> Merge the Designer contract before posting `/pulse-build`. The build workflow reads the merged contract from the default branch and must report a blocker instead of overriding it.
+
+### Activity 2: Implement the approved design
+
+1. After the design pull request is merged, return to this issue and enter:
+
+   ```text
+   /pulse-build
+   ```
+
+1. Wait for the workflow triggered by `/pulse-build` to start, then open its Actions run.
+
+1. Review the run summary, validation log, and HTTP smoke-test evidence. Confirm that:
+
+   - The workflow acted as Coder.
+   - It read both `docs/project-pulse-plan.md` and `docs/project-pulse-design.md`.
+   - It changed only `app/index.html`, `app/styles.css`, `app/project-data.json`, and `.vscode/launch.json`.
+   - The Project Pulse validator passed.
+   - Requests for `/index.html`, `/styles.css`, and `/project-data.json` succeeded.
+   - The preview server was stopped after validation.
+
+1. Open the draft pull request titled **Build the Project Pulse dashboard**.
+
+1. Review the implementation. Make sure:
+
+   - `app/index.html` uses the exact title `Project Pulse`.
+   - `app/index.html` references `styles.css` and `project-data.json`.
+   - Project data renders as visible cards with the `project-card` class.
+   - Each card shows `status`, `recentActivity`, and `priority`.
+   - `app/styles.css` includes `.dashboard`, `.project-card`, `border-radius`, `box-shadow`, and responsive behavior.
+   - `app/project-data.json` has a top-level `projects` array.
+   - Every project has `name`, `owner`, `status`, `recentActivity`, and `priority`.
+   - `.vscode/launch.json` is strict JSON.
+   - The launch configuration is named **Run Project Pulse Dashboard**.
+   - It runs `python3 -m http.server 5500` from the `app` directory.
+   - It opens `http://localhost:%s/index.html`, not a directory listing.
+   - The implementation follows the approved Designer contract.
+
+1. Open the pull request's **Checks** tab and confirm the **Project Pulse contract** check passes.
+
+1. Review the **Files changed** tab. Do not merge if the Coder changed the plan, design contract, workflows, graders, agent definitions, or other out-of-scope files.
+
+### Activity 3: Preview the dashboard
+
+1. Create or open a Codespace on the build pull request branch. If you reuse a Codespace, use the branch selector to check out the pull request branch before continuing.
+
+1. In VS Code, open **Run and Debug**.
+
+1. Select **Run Project Pulse Dashboard**, then select the green play button.
+
+1. Confirm the browser opens `index.html` and displays the Project Pulse cards, statuses, recent activity, and priorities.
+
+1. Check the layout at a narrow viewport and verify that keyboard focus remains visible.
+
+1. Stop the preview server.
+
+1. Return to the pull request. When the implementation, evidence, preview, and required checks are correct, mark it ready if needed, complete the required human review, and merge it.
+
+1. Return to this issue. The Step 3 grader will check the merged application and post the next lesson.
 
 <details>
 <summary>Having trouble? 🤷</summary><br/>
 
-- Make sure all three app files exist.
-- Make sure `app/index.html` references `styles.css` and `project-data.json`.
-- Make sure `app/index.html` displays project cards, not a directory listing.
-- Make sure `app/styles.css` adds polished card styling.
-- Make sure `.vscode/launch.json` opens `index.html`, not a directory root.
-- Make sure `app/project-data.json` includes project data.
-- Make sure **Run Project Pulse Dashboard** opens the app in a browser.
-- Make sure you pushed your commit.
+- Do not post `/pulse-build` until `docs/project-pulse-design.md` is merged.
+- If the design PR changes app files, or the build PR changes the design contract, do not merge it.
+- If **Project Pulse contract** fails, use its log and the workflow evidence to review the failure. Do not bypass the check.
+- If an agentic workflow fails twice, follow the `agentic:needs-human` escalation comment. There should not be a third automatic attempt.
+- If the preview opens a directory listing, verify that the launch URL ends in `/index.html` and the working directory is `app`.
+- If the lesson does not advance, confirm the build PR was merged and the Step 3 grader passed.
 
 </details>

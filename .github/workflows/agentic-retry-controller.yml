@@ -1,0 +1,164 @@
+name: Agentic retry controller
+
+on:
+  workflow_run:
+    workflows:
+      - Project Pulse 01 - Document team
+      - Project Pulse 02 - Plan dashboard
+      - Project Pulse 03A - Design dashboard
+      - Project Pulse 03B - Build dashboard
+      - Project Pulse 04 - Validate and hand off
+    types: [completed]
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+
+concurrency:
+  group: agentic-retry-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    if: >-
+      github.event.workflow_run.conclusion != 'success' &&
+      github.event.workflow_run.conclusion != 'cancelled' &&
+      github.event.workflow_run.conclusion != 'skipped'
+    name: Evaluate retry policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download failure evidence
+        id: evidence
+        continue-on-error: true
+        run: |
+          mkdir -p evidence
+          gh run download "$RUN_ID" --dir evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+
+      - name: Detect safe-output state
+        id: safe_output
+        shell: bash
+        run: |
+          state=none
+          if find evidence -name safe-output-result.json -print -quit | grep -q .; then
+            if grep -RiqE '"(applied|partial|created)"[[:space:]]*:[[:space:]]*(true|"true")' evidence; then
+              state=unsafe
+            fi
+          fi
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+
+      - name: Classify failure evidence
+        id: failure
+        shell: bash
+        run: |
+          classification=transient
+          observed_scope=unavailable
+          if find evidence -name scope-check.json -print -quit | grep -q .; then
+            observed_scope="$(find evidence -name scope-check.json -print -quit)"
+            if grep -q '"ok"[[:space:]]*:[[:space:]]*false' "$observed_scope"; then
+              classification=scope
+            fi
+          fi
+          if grep -RiqE 'authorization denied|authentication failed|inference_access_error' evidence 2>/dev/null; then
+            classification=auth
+          elif grep -RiqE 'policy violation|permission ceiling|out-of-scope' evidence 2>/dev/null; then
+            classification=policy
+          fi
+          echo "classification=$classification" >> "$GITHUB_OUTPUT"
+          echo "observed_scope=$observed_scope" >> "$GITHUB_OUTPUT"
+
+      - name: Evaluate attempt
+        id: decision
+        shell: bash
+        run: |
+          set +e
+          node .github/scripts/evaluate-agentic-retry.mjs \
+            --attempt "$RUN_ATTEMPT" \
+            --conclusion "$CONCLUSION" \
+            --failure-class "$FAILURE_CLASS" \
+            --safe-output-state "$SAFE_OUTPUT_STATE" \
+            --json > retry-decision.json
+          decision_exit=$?
+          set -e
+          node -e "const d=require('./retry-decision.json'); for (const [k,v] of Object.entries(d)) console.log(k+'='+String(v).replace(/%/g,'%25').replace(/\\n/g,'%0A').replace(/\\r/g,'%0D'))" >> "$GITHUB_OUTPUT"
+          echo "decision_exit=$decision_exit" >> "$GITHUB_OUTPUT"
+        env:
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          FAILURE_CLASS: ${{ steps.failure.outputs.classification }}
+          SAFE_OUTPUT_STATE: ${{ steps.safe_output.outputs.state }}
+
+      - name: Rerun first failed execution
+        if: steps.decision.outputs.action == 'retry'
+        run: gh run rerun "$RUN_ID" --failed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+
+      - name: Locate exercise issue
+        if: steps.decision.outputs.action == 'escalate'
+        id: issue
+        shell: bash
+        run: |
+          number="$(gh issue list --state all --search '"Exercise: Agent Orchestration Build Your AI Dream Team" in:title' --limit 1 --json number --jq '.[0].number')"
+          if [ -z "$number" ] || [ "$number" = "null" ]; then
+            echo "No canonical exercise issue was found." >&2
+            exit 1
+          fi
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Escalate second failure
+        if: steps.decision.outputs.action == 'escalate'
+        shell: bash
+        run: |
+          gh label create agentic:needs-human --color B60205 --description "Agentic workflow requires maintainer intervention" --force
+          cat > escalation.md <<EOF
+          ## Agentic workflow needs human review
+
+          - Workflow: **$WORKFLOW_NAME**
+          - Attempt 1: $RUN_URL/attempts/1
+          - Latest attempt: $RUN_URL
+          - Attempt: $RUN_ATTEMPT
+          - Failure classification: $CLASSIFICATION
+          - Safe-output state: $SAFE_OUTPUT_STATE
+          - Evidence download: $EVIDENCE_OUTCOME
+          - Observed scope evidence: \`$OBSERVED_SCOPE\`
+          - Head SHA: \`$HEAD_SHA\`
+          - Last successful checkpoint: the prior merged Project Pulse stage
+          - Recommended next action: inspect the run and evidence, correct the trusted workflow or repository state, then explicitly resume the stage
+
+          Automation stopped after two total executions. Inspect both attempts and their artifacts, correct the workflow or repository state, remove \`agentic:needs-human\`, and explicitly invoke the stage command again.
+          EOF
+          gh issue edit "$ISSUE_NUMBER" --add-label agentic:needs-human
+          gh issue comment "$ISSUE_NUMBER" --body-file escalation.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          CLASSIFICATION: ${{ steps.failure.outputs.classification }}
+          SAFE_OUTPUT_STATE: ${{ steps.safe_output.outputs.state }}
+          EVIDENCE_OUTCOME: ${{ steps.evidence.outcome }}
+          OBSERVED_SCOPE: ${{ steps.failure.outputs.observed_scope }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Upload retry decision
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: project-pulse-retry-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          retention-days: 30
+          path: |
+            retry-decision.json
+            evidence/
+          if-no-files-found: warn

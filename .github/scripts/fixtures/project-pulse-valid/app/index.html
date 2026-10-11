@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project Pulse</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#project-dashboard">Skip to project dashboard</a>
+    <main id="project-dashboard">
+      <section aria-labelledby="summary-heading">
+        <h1 id="summary-heading">Project Pulse</h1>
+        <div class="summary-grid" id="summary-grid"></div>
+      </section>
+      <section>
+        <div class="dashboard" id="project-list" aria-live="polite"></div>
+      </section>
+    </main>
+    <script>
+      const projectList = document.querySelector("#project-list");
+      function createProjectCard(project) {
+        const card = document.createElement("article");
+        card.className = "project-card";
+        const title = document.createElement("h2");
+        title.textContent = project.name;
+        const status = document.createElement("p");
+        status.textContent = `Status: ${project.status}`;
+        const activity = document.createElement("p");
+        activity.textContent = `Recent activity: ${project.recentActivity}`;
+        const priority = document.createElement("p");
+        priority.textContent = `Priority: ${project.priority}`;
+        card.append(title, status, activity, priority);
+        return card;
+      }
+      async function loadProjects() {
+        const response = await fetch("project-data.json", { cache: "no-store" });
+        const data = await response.json();
+        if (!Array.isArray(data.projects)) {
+          throw new Error("project-data.json must include projects.");
+        }
+        projectList.replaceChildren(...data.projects.map(createProjectCard));
+      }
+      loadProjects();
+    </script>
+  </body>
+</html>
