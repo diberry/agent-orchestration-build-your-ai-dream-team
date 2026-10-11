@@ -182,7 +182,6 @@ This keeps a human approval gate between stages and avoids granting an agent unr
 | `.github/workflows/agentic-observability.yml` | Conventional `workflow_run` workflow that collects completed agentic-run metadata and logs, publishes an Actions summary, and uploads sanitized evidence artifacts. | Add |
 | `.github/workflows/agentic-retry-controller.yml` | Conventional `workflow_run` controller that permits one automatic rerun after the initial failure and escalates the second failure to a human. | Add |
 | `.github/workflows/project-pulse-contract.yml` | Conventional non-agentic GitHub Actions workflow that runs the validator on Project Pulse pull requests and pushes to `main`. | Add |
-| `.github/CODEOWNERS` | Requires maintainer review for `.github/workflows/*.md`, `.github/workflows/*.lock.yml`, shared instructions, validators, and workflow policy files. | Add or update |
 | `.github/agents/*.agent.md` | Existing Orchestrator, Planner, Designer, and Coder role definitions. Agentic workflows do not automatically orchestrate these files, so workflow instructions must explicitly read them or move their durable rules into shared instructions. | Retain during migration |
 | `.github/workflows/1-step.yml` through `.github/workflows/4-step.yml` | Existing deterministic lesson grading and progression workflows. | Retain initially; update only where they mention Copilot CLI behavior |
 
@@ -243,7 +242,7 @@ Every stage must review the agentic workflow itself, not only the artifact it pr
 - `add-comment` targets only the triggering issue unless another target is explicitly required.
 - PR title prefixes, labels, and allowed output counts are fixed in frontmatter.
 - No workflow directly merges its own pull request.
-- CODEOWNERS and branch protection require human review before agent-generated changes reach `main`.
+- Portable branch rules require human review before agent-generated changes reach `main`.
 
 ### Runtime and cost controls
 
@@ -276,7 +275,7 @@ The implementation should use the GitHub Actions run attempt and a trusted contr
    - Refuse another automatic rerun.
    - Add an `agentic:needs-human` label to the tracking issue or pull request.
    - Post a human-escalation comment with both run URLs, artifact URLs, failure classification, last successful checkpoint, observed file scope, safe-output state, and recommended next action.
-   - Record `escalated_to_human: true` in `run-manifest.json`.
+   - Record the escalation decision in `retry-decision.json` and the exact triggering-issue comment.
    - Prevent the same stage from automatically activating again while the escalation label remains.
 5. Require a repository writer or maintainer to inspect the evidence, correct the workflow or repository state, remove the escalation label, and explicitly invoke the stage command again.
 
@@ -292,26 +291,23 @@ The workflow policy validator should fail a pull request when:
 
 ### Observability, logs, and artifacts
 
-- Every run has a correlation key containing the tracking issue number, stage ID, GitHub Actions run ID, and generated PR number when one exists.
-- The workflow writes a concise `$GITHUB_STEP_SUMMARY` with activation reason, acting role, scope, files considered, files changed, validation outcome, safe outputs requested, and links to the issue and PR.
+- Every stage manifest correlates the tracking issue, stage ID, and GitHub Actions run ID. The post-run observability bundle adds the generated PR URL when it can be discovered from safe-output logs.
+- The observability workflow writes a concise `$GITHUB_STEP_SUMMARY` with the workflow, run, attempt, conclusion, actor, head SHA, and evidence-download outcome.
 - Deterministic commands write stdout and stderr to stage-specific log files before those logs are uploaded.
-- Each run uploads a sanitized evidence artifact even when the agent fails after activation.
-- The artifact contains:
-  - `run-manifest.json` with workflow source SHA, lock-file SHA, trigger, actor, engine and model identifiers when available, declared permissions, tools, network policy, safe outputs, start and end time, conclusion, and generated item URLs.
-  - `validation.log` with deterministic check output.
+- Each successful evidence request uploads a sanitized stage artifact containing:
+  - `run-manifest.json` with pre-publication workflow metadata, declared permissions, tools, network policy, safe outputs, issue URL, and run URL.
   - `changed-files.txt` with the proposed file list.
   - `scope-check.json` showing allowed, denied, and observed paths.
-  - `agent-output.md` containing the final user-visible agent result or failure summary.
-  - `safe-output-result.json` containing requested and applied safe outputs.
-- Build and validation stages also include `http-smoke-test.log`.
+  - `safe-output-result.json` containing the bounded, sanitized validation-output preview.
+- Build and handoff stages also include `validation.log` and `http-smoke-test.log`.
+- After completion, `agentic-observability.yml` downloads available stage and generated safe-output artifacts and adds `final-run-manifest.json` with the actual conclusion, run URL, issue URL, artifacts page, and discovered PR URL.
 - Evidence artifacts use predictable names such as `project-pulse-stage-02-${{ github.run_id }}` and a documented retention period.
 - The tracking issue receives a completion or failure comment linking to the Actions run, artifact, and generated PR.
 - Operators use `gh aw logs` for workflow history and usage, and `gh aw audit RUN-ID` for per-run duration, token usage, and estimated AI-credit review.
 - Observability must not record secrets, credentials, raw authorization headers, hidden chain-of-thought, or unsanitized untrusted content.
 - Artifact upload and issue reporting run under `always()` semantics where supported so failures remain diagnosable.
 - The observability workflow itself has read-only `actions`, `contents`, and metadata permissions and cannot modify source or merge pull requests.
-- Attempt 2 artifacts include a pointer to attempt 1 so a human can compare failures without searching across runs.
-- Human escalation must remain visible on the tracking issue until a maintainer resolves it; a later successful manual run may close the escalation with a final evidence link.
+- Human escalation must remain visible on the exact triggering issue until a maintainer resolves it.
 
 ### Source and lock-file integrity
 
@@ -529,7 +525,7 @@ Retain `.github/workflows/3-step.yml` for lesson progression after the build PR 
 - **Validation:** run the contract validator and live HTTP smoke test; attach results to the PR body.
 - **Observability:** artifact includes changed-file inventory, JSON validation, selector and launch checks, HTTP smoke-test log, server cleanup result, contract workflow URL, and build PR URL.
 - **Retry:** attempt 2 receives the first validation and smoke-test failures but retains the exact four-file boundary and original permissions. A second failure blocks the build stage and escalates with both attempts' logs.
-- **Human gate:** require the deterministic `Project Pulse contract` check and CODEOWNER approval before merge.
+- **Human gate:** require the deterministic `Project Pulse contract` check and one human approval before merge.
 - **Failure behavior:** if the approved design cannot be implemented within the four-file scope, stop and comment with the blocker rather than editing another file.
 
 ## Stage 4: Validate and hand off
@@ -646,7 +642,7 @@ The repository owner approved the recommended defaults for this implementation. 
 | 4 | Should Stage 3 produce one PR or separate Designer and Coder PRs? | Use a Designer contract PR followed by a Coder implementation PR. | Two PRs provide auditable orchestration and prevent design and implementation ownership from becoming fictional. | Stage 3 workflow structure |
 | 5 | Should agent-created PRs trigger CI with a second PAT? | Yes. Use `GH_AW_CI_TRIGGER_TOKEN` only for the extra empty commit. | Without it, PRs created with `GITHUB_TOKEN` do not trigger normal contract checks. | CI and grader integration |
 | 6 | What PAT expiration policy should apply? | Use the shortest duration that covers the exercise pilot; revoke both PATs at the end and recreate them for later runs. | This controls credential exposure and learner setup frequency. | Setup documentation and secret rotation |
-| 7 | What branch review policy should be required? | Require one human approval, CODEOWNER review for workflow/security files, and all required checks; prohibit workflow self-approval and self-merge. | This defines the human control boundary for agent-generated changes. | Ruleset and CODEOWNERS |
+| 7 | What branch review policy should be required? | Require one human approval, resolved review threads, and all required checks; prohibit workflow self-approval and self-merge. | This defines a portable human control boundary for agent-generated changes, including personal-account exercise copies with only one eligible reviewer. | Ruleset |
 | 8 | Where should human escalation occur? | Add `agentic:needs-human` and a detailed comment to the canonical exercise issue; also comment on an existing stage PR when relevant. | Retry and observability workflows need one authoritative place for blockers and resume actions. | Retry controller and stage-state design |
 | 9 | Which failures receive the one automatic retry? | Retry infrastructure, engine, validation, and safe-output failures; do not retry human cancellation, authorization denial, policy violations, or detected scope expansion. | This prevents an automatic retry from bypassing an intentional stop or security control. | Retry classification |
 | 10 | How long should evidence artifacts be retained? | Retain pilot artifacts for 30 days, then revisit based on support and audit needs. | Retention affects cost, privacy, incident investigation, and learner support. | Observability configuration |
@@ -721,10 +717,10 @@ Implementation proceeded with the recommended defaults. Any deviation should be 
    - Create the two least-privilege fine-grained PATs.
    - Run `node .github/scripts/setup-agentic-workflows.mjs --configure`.
    - Verify repository or account policy permits workflow-requested write scopes.
-   - Add CODEOWNERS coverage for workflow sources, lock files, policy scripts, and shared instructions.
    - Confirm the script-created branch ruleset requires:
      - Pull requests before merge.
-     - CODEOWNER review.
+     - One human approval.
+     - Resolved review threads.
      - `Agentic workflow policy`.
      - `Project Pulse contract`.
      - Up-to-date branches if required by the exercise.
@@ -756,7 +752,7 @@ Implementation proceeded with the recommended defaults. Any deviation should be 
     - Two failures followed by human escalation and no third run.
     - Partial safe-output failure.
     - Artifact upload failure.
-    - Branch protection or CODEOWNER rejection.
+    - Branch-protection rejection.
     - Human repair and explicit stage resume.
 
 12. **Define cutover and rollback**
@@ -778,7 +774,7 @@ After that proof of concept succeeds, Stages 2 through 4 can be implemented from
 ## Rollout sequence
 
 1. Add shared instructions, validator, and PR template.
-2. Add the agentic workflow policy validator, observability collector, retry evaluator, policy, observability and retry-controller workflows, CODEOWNERS rules, and branch protection before enabling an agentic workflow.
+2. Add the agentic workflow policy validator, observability collector, retry evaluator, policy, observability and retry-controller workflows, and portable branch protection before enabling an agentic workflow.
 3. Implement and trial Stage 1 in a branch; review its scope, permissions, tools, safe outputs, and lock file.
 4. Implement Stage 2 after Stage 1 reliably creates reviewable PRs; repeat the workflow governance review.
 5. Implement Stage 3A and 3B, verify that the design contract is consumed by the build workflow, and review both permission boundaries independently.
@@ -804,7 +800,7 @@ After that proof of concept succeeds, Stages 2 through 4 can be implemented from
 - Each stage permits exactly two total automated executions: the initial run and one retry.
 - A second failure cannot trigger a third automated execution and instead creates a persistent, evidence-linked human escalation.
 - Only an authorized human can clear the escalation and explicitly resume the stage.
-- CODEOWNERS and branch protection prevent unreviewed workflow or agent-generated changes from reaching `main`.
+- Branch protection prevents unreviewed workflow or agent-generated changes from reaching `main`.
 - Each stage produces a draft pull request for human review.
 - Stage 3 preserves separate Designer and Coder outputs.
 - Deterministic validation, not model judgment alone, enforces exact exercise requirements.

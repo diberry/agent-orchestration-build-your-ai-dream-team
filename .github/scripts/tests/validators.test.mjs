@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -10,6 +10,7 @@ import {
   parseArgs
 } from "../setup-agentic-workflows.mjs";
 import { detectSafeOutputState } from "../detect-agentic-safe-output-state.mjs";
+import { finalizeEvidence } from "../finalize-agentic-evidence.mjs";
 
 const scriptsDir = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(scriptsDir, "..", "..");
@@ -83,7 +84,8 @@ test("setup script builds the required default-branch ruleset", () => {
   const pullRequest = payload.rules.find((rule) => rule.type === "pull_request");
   assert.deepEqual(pullRequest.parameters.allowed_merge_methods, ["merge", "squash", "rebase"]);
   assert.equal(pullRequest.parameters.required_approving_review_count, 1);
-  assert.equal(pullRequest.parameters.require_code_owner_review, true);
+  assert.equal(pullRequest.parameters.require_code_owner_review, false);
+  assert.equal(pullRequest.parameters.require_last_push_approval, false);
   const requiredChecks = payload.rules.find((rule) => rule.type === "required_status_checks");
   assert.deepEqual(
     requiredChecks.parameters.required_status_checks.map((check) => check.context),
@@ -147,6 +149,34 @@ test("safe-output retry detection is conservative after any write-capable job st
   assert.equal(detectSafeOutputState([]), "unsafe");
 });
 
+test("observability finalizer records actual outcome and published pull request", () => {
+  const evidenceDir = mkdtempSync(path.join(tmpdir(), "agentic-final-evidence-"));
+  try {
+    const stageDir = path.join(evidenceDir, "stage");
+    mkdirSync(stageDir, { recursive: true });
+    writeFileSync(path.join(stageDir, "run-manifest.json"), JSON.stringify({
+      urls: { issue: "https://github.com/owner/repo/issues/7", pullRequest: "" }
+    }));
+    writeFileSync(
+      path.join(stageDir, "safe-output.log"),
+      "Created https://github.com/owner/repo/pull/8\n",
+      "utf8"
+    );
+    const result = finalizeEvidence({
+      evidenceDir,
+      conclusion: "failure",
+      runUrl: "https://github.com/owner/repo/actions/runs/100",
+      endTime: "2026-10-11T00:00:00Z"
+    });
+    assert.equal(result.conclusion, "failure");
+    assert.equal(result.issueUrl, "https://github.com/owner/repo/issues/7");
+    assert.equal(result.pullRequestUrl, "https://github.com/owner/repo/pull/8");
+    assert.equal(result.artifactUrl, "https://github.com/owner/repo/actions/runs/100#artifacts");
+  } finally {
+    rmSync(evidenceDir, { recursive: true, force: true });
+  }
+});
+
 test("exercise start and every agentic stage require completed setup", () => {
   const start = readFileSync(path.join(repoRoot, ".github", "workflows", "0-start-exercise.yml"), "utf8");
   assert.match(start, /name: Agentic setup gate/);
@@ -168,6 +198,15 @@ test("exercise start and every agentic stage require completed setup", () => {
       `${source} must require completed setup`
     );
   }
+
+  const setup = readFileSync(path.join(scriptsDir, "setup-agentic-workflows.mjs"), "utf8");
+  assert.match(setup, /workflow", "run", "Step 0"/);
+  const contract = readFileSync(path.join(workflowDir, "project-pulse-contract.yml"), "utf8");
+  assert.match(contract, /git diff --quiet "origin\/\$BASE_REF\.\.\.HEAD"/);
+  assert.match(contract, /\[ "\$app_changed" = "false" \]/);
+  assert.equal(existsSync(path.join(repoRoot, ".github", "CODEOWNERS")), false);
+  assert.doesNotMatch(readFileSync(path.join(repoRoot, ".gitattributes"), "utf8"), /merge=ours/);
+  assert.match(readFileSync(path.join(repoRoot, "README.md"), "utf8"), /\]\(\.\.\/\.\.\/issues\/1\)/);
 });
 
 test("validate-project-pulse rejects the invalid fixture", () => {
@@ -301,6 +340,58 @@ test("collect-agentic-evidence returns scope failure for out-of-scope files", ()
   }
 });
 
+test("collect-agentic-evidence checks both rename paths and records live issue timing", () => {
+  const repository = mkdtempSync(path.join(tmpdir(), "agentic-rename-scope-"));
+  const outDir = path.join(repository, ".agentic-evidence");
+  const git = process.platform === "win32"
+    ? path.join(process.env.ProgramFiles, "Git", "cmd", "git.exe")
+    : "git";
+  try {
+    execFileSync(git, ["init"], { cwd: repository });
+    execFileSync(git, ["config", "user.email", "test@example.com"], { cwd: repository });
+    execFileSync(git, ["config", "user.name", "Test User"], { cwd: repository });
+    writeFileSync(path.join(repository, "outside.md"), "outside\n", "utf8");
+    execFileSync(git, ["add", "outside.md"], { cwd: repository });
+    execFileSync(git, ["commit", "-m", "baseline"], { cwd: repository });
+    execFileSync(git, ["mv", "outside.md", "allowed.md"], { cwd: repository });
+    const eventPath = path.join(repository, ".git", "event.json");
+    writeFileSync(eventPath, JSON.stringify({
+      issue: {
+        number: 7,
+        html_url: "https://github.com/owner/repo/issues/7"
+      }
+    }), "utf8");
+
+    const result = runScript("collect-agentic-evidence.mjs", [
+      "--out",
+      outDir,
+      "--git-changed-files",
+      "--allowed-files",
+      "allowed.md",
+      "--stage",
+      "test"
+    ], {
+      cwd: repository,
+      env: {
+        ...process.env,
+        GITHUB_EVENT_PATH: eventPath,
+        GITHUB_REPOSITORY: "owner/repo",
+        GITHUB_RUN_ID: "100",
+        GIT_BIN: git
+      }
+    });
+    assert.equal(result.status, 4, result.stderr || result.stdout);
+    const scope = JSON.parse(readFileSync(path.join(outDir, "scope-check.json"), "utf8"));
+    assert.deepEqual(scope.changedFiles, ["allowed.md", "outside.md"]);
+    assert.deepEqual(scope.outOfScope, ["outside.md"]);
+    const manifest = JSON.parse(readFileSync(path.join(outDir, "run-manifest.json"), "utf8"));
+    assert.equal(manifest.urls.issue, "https://github.com/owner/repo/issues/7");
+    assert.notEqual(manifest.generatedAt, "1970-01-01T00:00:00.000Z");
+  } finally {
+    rmSync(repository, { recursive: true, force: true });
+  }
+});
+
 test("collect-agentic-evidence keeps UTF-8 previews within the byte limit", () => {
   const outDir = mkdtempSync(path.join(tmpdir(), "agentic-evidence-"));
   try {
@@ -378,6 +469,23 @@ test("evaluate-agentic-retry refuses cancellation, auth, policy, and scope class
     const json = parseJson(result.stdout);
     assert.equal(json.authorizeRetry, false);
     assert.equal(json.action, "refuse");
+  }
+});
+
+test("evaluate-agentic-retry escalates every second non-successful attempt", () => {
+  for (const failureClass of ["auth", "policy", "scope"]) {
+    const result = runScript("evaluate-agentic-retry.mjs", [
+      "--conclusion",
+      "failure",
+      "--attempt",
+      "2",
+      "--failure-class",
+      failureClass,
+      "--safe-output-state",
+      "complete"
+    ]);
+    assert.equal(result.status, 11, `${failureClass}: ${result.stdout} ${result.stderr}`);
+    assert.equal(parseJson(result.stdout).action, "escalate");
   }
 });
 

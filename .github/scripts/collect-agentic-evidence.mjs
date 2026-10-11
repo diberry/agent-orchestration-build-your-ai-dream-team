@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
   ensureDir,
@@ -78,7 +78,12 @@ function readList(flags, inlineName, fileName) {
 }
 
 function readGitChangedFiles() {
-  const output = execFileSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all"], {
+  const configuredGit = process.env.GIT_BIN;
+  const windowsGit = process.env.ProgramFiles
+    ? path.join(process.env.ProgramFiles, "Git", "cmd", "git.exe")
+    : "";
+  const git = configuredGit || (process.platform === "win32" && existsSync(windowsGit) ? windowsGit : "git");
+  const output = execFileSync(git, ["status", "--porcelain=v1", "-z", "--untracked-files=all"], {
     encoding: "utf8"
   });
   const entries = output.split("\0").filter(Boolean);
@@ -91,6 +96,10 @@ function readGitChangedFiles() {
       files.push(file);
     }
     if (/[RC]/.test(status)) {
+      const sourceFile = normalizeRepoPath(entries[index + 1] ?? "");
+      if (sourceFile && !sourceFile.startsWith(".agentic-evidence/")) {
+        files.push(sourceFile);
+      }
       index += 1;
     }
   }
@@ -151,6 +160,26 @@ function sanitizeUrl(value) {
     .replace(/gh[pousr]_[A-Za-z0-9_]{20,}/g, "[REDACTED]")
     .replace(/github_pat_[A-Za-z0-9_]{20,}/g, "[REDACTED]")
     .replace(/([?&](?:token|secret|password|auth|api[_-]?key)=)[^&#]+/gi, "$1[REDACTED]");
+}
+
+function deriveIssueUrl(flags) {
+  const explicit = valueFrom(flags, "issue-url", "GITHUB_ISSUE_URL");
+  if (explicit) {
+    return explicit;
+  }
+  const eventPath = process.env.GITHUB_EVENT_PATH;
+  if (!eventPath) {
+    return "";
+  }
+  const event = JSON.parse(readFileSync(eventPath, "utf8"));
+  const issueUrl = event.issue?.html_url;
+  if (issueUrl) {
+    return issueUrl;
+  }
+  const issueNumber = event.issue?.number;
+  const repository = process.env.GITHUB_REPOSITORY;
+  const serverUrl = process.env.GITHUB_SERVER_URL ?? "https://github.com";
+  return issueNumber && repository ? `${serverUrl}/${repository}/issues/${issueNumber}` : "";
 }
 
 function sanitizeEnvironment(env) {
@@ -254,7 +283,7 @@ function deterministicTimestamp(env) {
   if (env.SOURCE_DATE_EPOCH && /^\d+$/.test(env.SOURCE_DATE_EPOCH)) {
     return new Date(Number(env.SOURCE_DATE_EPOCH) * 1000).toISOString();
   }
-  return "1970-01-01T00:00:00.000Z";
+  return new Date().toISOString();
 }
 
 function main() {
@@ -354,7 +383,7 @@ function main() {
     },
     conclusion: sanitizeForManifest(valueFrom(flags, "conclusion", "AGENTIC_CONCLUSION")),
     urls: {
-      issue: sanitizeUrl(valueFrom(flags, "issue-url", "GITHUB_ISSUE_URL")),
+      issue: sanitizeUrl(deriveIssueUrl(flags)),
       pullRequest: sanitizeUrl(valueFrom(flags, "pr-url", "GITHUB_PR_URL")),
       run: sanitizeUrl(valueFrom(flags, "run-url", "GITHUB_RUN_URL", defaultRunUrl)),
       artifact: sanitizeUrl(valueFrom(flags, "artifact-url", "GITHUB_ARTIFACT_URL"))

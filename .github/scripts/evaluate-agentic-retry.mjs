@@ -126,6 +126,14 @@ function decisionFor({ conclusion, attempt, failureClass, safeOutputState }) {
     return { ...base, action: "escalate", exitCode: EXIT.RETRY_ESCALATE };
   }
   if (!classification.retryable) {
+    if (attempt >= 2) {
+      return {
+        ...base,
+        action: "escalate",
+        reason: `${classification.reason}; attempt ${attempt} must escalate`,
+        exitCode: EXIT.RETRY_ESCALATE
+      };
+    }
     return { ...base, action: "refuse", exitCode: EXIT.RETRY_DENIED };
   }
   if (attempt === 1) {

@@ -36,5 +36,5 @@ Each stage consumed approved outputs from earlier stages, stayed within an expli
 - Keep acceptance criteria in deterministic validators instead of relying only on model judgment.
 - Review editable workflow sources and their compiled lock files together.
 - Use `gh aw logs` and `gh aw audit RUN-ID` to investigate runtime history, usage, and cost.
-- Add repository rules that require workflow policy checks, application contract checks, and CODEOWNER review.
+- Add portable repository rules that require human approval, workflow policy checks, and application contract checks.
 - Explore the [GitHub Agentic Workflows documentation](https://github.github.com/gh-aw/).

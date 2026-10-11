@@ -103,19 +103,46 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
 
-      - name: Locate exercise issue
+      - name: Locate triggering exercise issue
         if: steps.decision.outputs.action == 'escalate'
         id: issue
         shell: bash
         run: |
-          number="$(gh issue list --state all --search '"Exercise: Agent Orchestration Build Your AI Dream Team" in:title' --limit 1 --json number --jq '.[0].number')"
-          if [ -z "$number" ] || [ "$number" = "null" ]; then
-            echo "No canonical exercise issue was found." >&2
+          number=""
+          manifest="$(find evidence -name run-manifest.json -print -quit)"
+          if [ -n "$manifest" ]; then
+            number="$(node -e "const m=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).urls?.issue?.match(/\\/issues\\/(\\d+)/); if(m) process.stdout.write(m[1])" "$manifest")"
+          fi
+          if [ -z "$number" ]; then
+            case "$WORKFLOW_NAME" in
+              "Project Pulse 01 - Document team") command="/pulse-team" ;;
+              "Project Pulse 02 - Plan dashboard") command="/pulse-plan" ;;
+              "Project Pulse 03A - Design dashboard") command="/pulse-design" ;;
+              "Project Pulse 03B - Build dashboard") command="/pulse-build" ;;
+              "Project Pulse 04 - Validate and hand off") command="/pulse-handoff" ;;
+              *) command="" ;;
+            esac
+            since="$(date -u -d "$RUN_CREATED_AT - 10 minutes" +%Y-%m-%dT%H:%M:%SZ)"
+            if [ -n "$command" ]; then
+              comments="$(gh api --method GET "repos/$GITHUB_REPOSITORY/issues/comments" -f since="$since" --paginate --slurp)"
+              candidates="$(jq --arg actor "$TRIGGERING_ACTOR" --arg command "$command" \
+                '[.[][] | select(.user.login == $actor and (.body | gsub("^\\s+|\\s+$"; "")) == $command) | .issue_url] | unique' \
+                <<<"$comments")"
+              if [ "$(jq 'length' <<<"$candidates")" -eq 1 ]; then
+                number="$(jq -r '.[0] | capture("/issues/(?<number>[0-9]+)$").number' <<<"$candidates")"
+              fi
+            fi
+          fi
+          if [ -z "$number" ]; then
+            echo "Unable to identify exactly one triggering issue; refusing to label an unrelated issue." >&2
             exit 1
           fi
           echo "number=$number" >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ github.token }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          RUN_CREATED_AT: ${{ github.event.workflow_run.created_at }}
+          TRIGGERING_ACTOR: ${{ github.event.workflow_run.triggering_actor.login }}
 
       - name: Escalate second failure
         if: steps.decision.outputs.action == 'escalate'

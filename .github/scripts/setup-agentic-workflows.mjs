@@ -131,8 +131,8 @@ function buildRulesetPayload() {
         parameters: {
           allowed_merge_methods: ["merge", "squash", "rebase"],
           dismiss_stale_reviews_on_push: true,
-          require_code_owner_review: true,
-          require_last_push_approval: true,
+          require_code_owner_review: false,
+          require_last_push_approval: false,
           required_approving_review_count: 1,
           required_review_thread_resolution: true
         }
@@ -314,6 +314,24 @@ function configure(repo) {
   configureRuleset(repo);
 }
 
+function ensureExerciseStarted(repo, defaultBranch) {
+  const issues = runGhJson([
+    "issue", "list",
+    ...repoArgs(repo),
+    "--state", "all",
+    "--search", "\"Exercise: Agent Orchestration Build Your AI Dream Team\" in:title",
+    "--limit", "1",
+    "--json", "number"
+  ]);
+  if (issues.length) {
+    console.log(`✓ Exercise issue #${issues[0].number} already exists.`);
+    return;
+  }
+  runGh(["workflow", "enable", "Step 0", ...repoArgs(repo)]);
+  runGh(["workflow", "run", "Step 0", ...repoArgs(repo), "--ref", defaultBranch]);
+  console.log("✓ Step 0 dispatched to create the canonical exercise issue.");
+}
+
 function printResult(repo, failures) {
   if (failures.length) {
     console.error(`\nAgentic setup is incomplete for ${repo}:`);
@@ -355,6 +373,7 @@ function main() {
       }
       runGh(["aw", "doctor", "--repo", repo], { inherit: true });
       runGh(["variable", "set", SETUP_VARIABLE, ...repoArgs(repo), "--body", "true"]);
+      ensureExerciseStarted(repo, repository.defaultBranchRef.name);
     }
     const failures = evaluateSetupState(readSetupState(repo));
     if (!failures.length && args.mode === "check") {

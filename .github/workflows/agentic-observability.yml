@@ -33,6 +33,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
 
+      - name: Finalize run evidence
+        if: always()
+        run: >-
+          node .github/scripts/finalize-agentic-evidence.mjs
+          --evidence evidence
+          --out evidence/final-run-manifest.json
+          --conclusion "$CONCLUSION"
+          --run-url "$RUN_URL"
+          --end-time "$END_TIME"
+        env:
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          END_TIME: ${{ github.event.workflow_run.updated_at }}
+
       - name: Write Actions summary
         run: |
           {

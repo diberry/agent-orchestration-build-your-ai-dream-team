@@ -34,6 +34,6 @@ The sequence is `/pulse-team`, `/pulse-plan`, `/pulse-design`, `/pulse-build`, a
 
 Open the exercise issue to begin:
 
-[![Go to Exercise](https://img.shields.io/badge/Go%20to%20Exercise-%E2%86%92-1f883d?style=for-the-badge&logo=github&labelColor=197935)](https://github.com/diberry/agent-orchestration-build-your-ai-dream-team/issues/1)
+[![Go to Exercise](https://img.shields.io/badge/Go%20to%20Exercise-%E2%86%92-1f883d?style=for-the-badge&logo=github&labelColor=197935)](../../issues/1)
 
 GitHub Agentic Workflows are in public preview. See [GitHub Agentic Workflows operations](docs/agentic-workflows-operations.md) for token scopes, exactly what the setup script changes, verification, and troubleshooting.

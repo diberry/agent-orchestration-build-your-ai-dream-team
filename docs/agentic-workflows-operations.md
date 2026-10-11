@@ -54,11 +54,12 @@ The script is safe to rerun. It:
 - creates or updates the `agentic:needs-human` label;
 - keeps default Actions permissions read-only and enables GitHub's combined setting that permits Actions to create pull requests;
 - creates or updates the active `Project Pulse agentic workflow guardrails` ruleset on the default branch;
-- requires a pull request, one human approval, CODEOWNER review, resolution of review threads, and approval from someone other than the last pusher;
+- requires a pull request, one human approval, and resolution of review threads;
 - blocks deletion and non-fast-forward updates;
 - requires the always-running `Agentic workflow policy` and `Project Pulse contract` checks;
 - runs `gh aw doctor`; and
-- sets `AGENTIC_SETUP_COMPLETE=true` only after configuration and doctor checks pass.
+- sets `AGENTIC_SETUP_COMPLETE=true` only after configuration and doctor checks pass; and
+- dispatches Step 0 when the canonical exercise issue does not already exist.
 
 GitHub combines “create pull requests” and “approve pull requests” in one repository setting. The setup enables that setting because safe outputs must create draft pull requests. The workflow definitions never request approval or merge operations, and the ruleset requires qualifying human approval.
 
@@ -107,14 +108,18 @@ Retry infrastructure, engine, validation, and safe-output failures once only whe
 
 ## Evidence
 
-Each stage requests one artifact named `project-pulse-stage-<stage>-<run-id>` containing:
+Each stage requests one artifact named `project-pulse-stage-<stage>-<run-id>`. Every stage contains:
 
 - `run-manifest.json`
-- `validation.log`
 - `changed-files.txt`
 - `scope-check.json`
-- `agent-output.md`
 - `safe-output-result.json`
-- `http-smoke-test.log` for build and handoff
+
+Build and handoff also contain:
+
+- `validation.log`
+- `http-smoke-test.log`
+
+The stage manifest is a pre-publication record, so its conclusion and generated PR/artifact URLs can be empty. After the run completes, `agentic-observability.yml` downloads the stage and safe-output artifacts and publishes `final-run-manifest.json` with the actual conclusion, run URL, issue URL, artifacts page, and discovered pull request URL.
 
 Use `gh aw logs --run-id RUN_ID` and `gh aw audit RUN_ID` for investigation. Evidence must not contain secrets, raw authorization headers, hidden reasoning, or unsanitized issue content.

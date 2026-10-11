@@ -30,8 +30,14 @@ jobs:
              ! git cat-file -e "origin/$BASE_REF:.github/workflows/project-pulse-contract.yml" 2>/dev/null; then
             initial_migration=true
           fi
+          app_changed=true
+          if [ "$EVENT_NAME" = "pull_request" ] &&
+             git diff --quiet "origin/$BASE_REF...HEAD" -- app .vscode/launch.json .github/scripts/validate-project-pulse.mjs; then
+            app_changed=false
+          fi
           if [ "$initial_migration" = "true" ] ||
-             grep -q "Dashboard placeholder" app/index.html; then
+             { grep -q "Dashboard placeholder" app/index.html &&
+               { [ "$EVENT_NAME" = "push" ] || [ "$app_changed" = "false" ]; }; }; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "The checked-in learner baseline is not a build artifact." >> "$GITHUB_STEP_SUMMARY"
           else
